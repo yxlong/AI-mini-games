@@ -1,0 +1,29 @@
+[package]
+name = "rust-pose"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+# Pure Rust ONNX runtime, works in WASM
+tract-onnx = "0.21"
+
+# Required for WASM compatibility
+getrandom = { version = "0.2", features = ["js"] }
+
+# For console logging in WASM
+web-sys = { version = "0.3", features = ["console"] }
+
+# Smaller allocator
+wee_alloc = "0.4"
+
+[profile.release]
+opt-level = "s"  # Optimize for size
+lto = true

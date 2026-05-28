@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成语接龙 · 亲子版</title>
+<style>
+:root {
+  --bg: #FFF8EC;
+  --surface: #FFFFFF;
+  --text: #3E2723;
+  --hint: #8D6E63;
+  --child: #FF6D00;
+  --child-bg: #FFF3E0;
+  --parent: #2979FF;
+  --parent-bg: #E3F2FD;
+  --green: #4CAF50;
+  --green-bg: #E8F5E9;
+  --orange: #FF9800;
+  --orange-bg: #FFF3E0;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 10px;
+}
+
+#app { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ====== START SCREEN ====== */
+.start-screen { text-align: center; padding: 40px 16px; }
+.start-screen h1 { font-size: 42px; margin-bottom: 2px; }
+.start-screen .subtitle { color: var(--hint); font-size: 14px; margin-bottom: 32px; }
+
+.name-row { display: flex; gap: 16px; justify-content: center; margin-bottom: 28px; }
+.name-card { text-align: center; padding: 12px 18px; background: var(--surface); border-radius: var(--radius); box-shadow: 0 2px 6px rgba(0,0,0,0.05); cursor: pointer; user-select: none; touch-action: manipulation; min-width: 90px; transition: transform 0.15s; }
+.name-card:active { transform: scale(0.96); }
+.name-card .nc-icon { font-size: 30px; display: block; margin-bottom: 2px; }
+.name-card .nc-label { font-size: 11px; color: var(--hint); }
+.name-card .nc-name { font-size: 18px; font-weight: bold; margin-top: 2px; }
+
+.btn-start {
+  font-size: 22px; padding: 14px 56px; border: none; border-radius: 50px;
+  background: linear-gradient(135deg, #FF9800, #F57C00); color: white; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,152,0,0.35); touch-action: manipulation; user-select: none;
+  font-weight: bold; letter-spacing: 2px;
+}
+.btn-start:active { transform: scale(0.96); }
+.instruction { font-size: 13px; color: var(--hint); margin-top: 14px; }
+
+/* ====== GAME ====== */
+.round-bar { display: flex; justify-content: space-between; align-items: center; background: var(--surface); border-radius: 50px; padding: 6px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.round-bar .round-text { font-size: 17px; font-weight: bold; }
+.round-bar .timer { font-size: 24px; font-weight: bold; min-width: 40px; text-align: center; }
+.round-bar .timer.urgent { color: #E53935; animation: blink 0.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.turn-banner { text-align: center; font-size: 18px; font-weight: bold; padding: 6px; border-radius: var(--radius); transition: background 0.3s, color 0.3s; }
+.turn-banner.child { background: var(--child-bg); color: var(--child); }
+.turn-banner.parent { background: var(--parent-bg); color: var(--parent); }
+
+.hint-box { text-align: center; font-size: 15px; color: var(--hint); padding: 6px; background: var(--surface); border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.hint-box b { font-size: 26px; color: var(--text); }
+
+.option-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.option-btn {
+  min-height: 90px; padding: 14px 8px; border: 2.5px solid #E0D8CF;
+  border-radius: var(--radius); background: var(--surface); cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1px;
+  font-size: 24px; font-weight: bold; color: var(--text);
+  transition: transform 0.1s, border-color 0.2s, background 0.2s;
+  touch-action: manipulation; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.option-btn:active { transform: scale(0.96); }
+.option-btn .py { font-size: 12px; font-weight: normal; color: var(--hint); }
+.option-btn.correct { background: var(--green-bg); border-color: var(--green); }
+.option-btn.wrong { background: var(--orange-bg); border-color: var(--orange); }
+
+/* ====== COLLECTION ====== */
+.collection { margin-top: 2px; }
+.collection .col-header { font-size: 13px; font-weight: bold; padding: 4px 10px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.collection .col-header.child-col { color: var(--child); }
+.collection .col-header.parent-col { color: var(--parent); }
+.collection .col-header .col-count { font-size: 11px; color: var(--hint); font-weight: normal; }
+
+.col-cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
+.col-card {
+  display: inline-flex; flex-direction: column; align-items: center; padding: 4px 10px;
+  border-radius: 8px; font-size: 14px; font-weight: bold; min-width: 62px;
+  border: 2px solid var(--green); background: var(--green-bg); color: var(--green);
+}
+.col-card .cc-py { font-size: 10px; font-weight: normal; opacity: 0.7; }
+.col-card.revealed { border-color: #DDD; background: #F5F5F5; color: #AAA; min-width: 62px; }
+.col-card.empty { border: 2px dashed #E0D8CF; background: transparent; color: #CCC; font-size: 20px; padding: 6px 12px; min-width: 62px; }
+.col-card.pop { animation: popIn 0.35s ease-out; }
+
+@keyframes popIn { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+
+/* Active player's collection highlight — just header, no background shift */
+.collection.active-col.child-col .col-header { background: var(--child-bg); border-radius: 6px; padding: 4px 10px; }
+.collection.active-col.parent-col .col-header { background: var(--parent-bg); border-radius: 6px; padding: 4px 10px; }
+
+/* ====== FEEDBACK ====== */
+.fb-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35); display: flex; justify-content: center;
+  align-items: center; z-index: 100; cursor: pointer;
+}
+.fb-card {
+  background: white; border-radius: var(--radius); padding: 26px 30px;
+  text-align: center; max-width: 300px; width: 90%;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.2);
+}
+.fb-card .fb-icon { font-size: 48px; margin-bottom: 6px; }
+.fb-card .fb-msg { font-size: 22px; font-weight: bold; margin-bottom: 4px; }
+.fb-card .fb-detail { font-size: 15px; color: var(--hint); line-height: 1.5; }
+.fb-card .fb-tap { font-size: 12px; color: #BBB; margin-top: 12px; }
+
+/* ====== TUTORIAL ====== */
+.tut-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.55); z-index: 200; display: flex;
+  flex-direction: column; justify-content: center; align-items: center; gap: 14px;
+}
+.tut-overlay .tut-arrow { font-size: 56px; animation: bounce 0.8s infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
+.tut-overlay .tut-text { font-size: 26px; color: white; font-weight: bold; }
+
+/* ====== RESULT ====== */
+.result-screen { text-align: center; padding: 40px 16px; }
+.result-screen .trophy { font-size: 60px; margin-bottom: 8px; }
+.result-screen h2 { font-size: 26px; margin-bottom: 18px; }
+.result-scores { display: flex; justify-content: center; gap: 32px; margin: 18px 0; }
+.result-player { text-align: center; }
+.result-player .rp-name { font-size: 15px; color: var(--hint); }
+.result-player .rp-stars { font-size: 30px; margin-top: 4px; }
+.result-player.winner .rp-name { color: var(--green); font-weight: bold; }
+.btn-replay {
+  font-size: 16px; padding: 10px 28px; border: 2px solid var(--green);
+  border-radius: 50px; background: white; color: var(--green); cursor: pointer;
+  margin: 5px; touch-action: manipulation; user-select: none; font-weight: bold;
+}
+.btn-replay:active { transform: scale(0.96); }
+
+.btn-start:focus-visible,.option-btn:focus-visible,.btn-replay:focus-visible,.name-card:focus-visible {
+  outline: 3px solid var(--child); outline-offset: 2px;
+}
+.voice-banner {
+  background: #FFF3E0; color: #E65100; padding: 8px 16px; border-radius: 10px;
+  font-size: 13px; text-align: center; cursor: pointer; display: none;
+}
+
+@media (max-width: 400px) {
+  .option-btn { min-height: 76px; font-size: 20px; padding: 10px 6px; }
+  .option-btn .py { font-size: 10px; }
+  .option-grid { gap: 6px; }
+  .hint-box b { font-size: 22px; }
+  .col-card { font-size: 12px; padding: 3px 8px; }
+}
+</style>
+</head>
+<body>
+<div id="voice-banner" class="voice-banner" onclick="this.style.display='none'">语音功能暂不可用，拼音仍然显示 (点击关闭)</div>
+<div id="app"></div>
+
+<script>
+// ====== IDIOM DATASET (136 verified) ======
+const IDIOMS = [
+  { text:'一心一意', pinyin:'yī xīn yī yì', first:'一', last:'意' },
+  { text:'意味深长', pinyin:'yì wèi shēn cháng', first:'意', last:'长' },
+  { text:'意气风发', pinyin:'yì qì fēng fā', first:'意', last:'发' },
+  { text:'意气相投', pinyin:'yì qì xiāng tóu', first:'意', last:'投' },
+  { text:'意气用事', pinyin:'yì qì yòng shì', first:'意', last:'事' },
+  { text:'长年累月', pinyin:'cháng nián lěi yuè', first:'长', last:'月' },
+  { text:'长长久久', pinyin:'cháng cháng jiǔ jiǔ', first:'长', last:'久' },
+  { text:'长话短说', pinyin:'cháng huà duǎn shuō', first:'长', last:'说' },
+  { text:'长驱直入', pinyin:'cháng qū zhí rù', first:'长', last:'入' },
+  { text:'月下老人', pinyin:'yuè xià lǎo rén', first:'月', last:'人' },
+  { text:'月明星稀', pinyin:'yuè míng xīng xī', first:'月', last:'稀' },
+  { text:'月黑风高', pinyin:'yuè hēi fēng gāo', first:'月', last:'高' },
+  { text:'月朗星稀', pinyin:'yuè lǎng xīng xī', first:'月', last:'稀' },
+  { text:'人山人海', pinyin:'rén shān rén hǎi', first:'人', last:'海' },
+  { text:'人来人往', pinyin:'rén lái rén wǎng', first:'人', last:'往' },
+  { text:'人才济济', pinyin:'rén cái jǐ jǐ', first:'人', last:'济' },
+  { text:'人定胜天', pinyin:'rén dìng shèng tiān', first:'人', last:'天' },
+  { text:'海阔天空', pinyin:'hǎi kuò tiān kōng', first:'海', last:'空' },
+  { text:'海底捞月', pinyin:'hǎi dǐ lāo yuè', first:'海', last:'月' },
+  { text:'海市蜃楼', pinyin:'hǎi shì shèn lóu', first:'海', last:'楼' },
+  { text:'海底捞针', pinyin:'hǎi dǐ lāo zhēn', first:'海', last:'针' },
+  { text:'空前绝后', pinyin:'kōng qián jué hòu', first:'空', last:'后' },
+  { text:'空穴来风', pinyin:'kōng xué lái fēng', first:'空', last:'风' },
+  { text:'空中楼阁', pinyin:'kōng zhōng lóu gé', first:'空', last:'阁' },
+  { text:'空谷传声', pinyin:'kōng gǔ chuán shēng', first:'空', last:'声' },
+  { text:'后来居上', pinyin:'hòu lái jū shàng', first:'后', last:'上' },
+  { text:'后生可畏', pinyin:'hòu shēng kě wèi', first:'后', last:'畏' },
+  { text:'后继有人', pinyin:'hòu jì yǒu rén', first:'后', last:'人' },
+  { text:'后会有期', pinyin:'hòu huì yǒu qī', first:'后', last:'期' },
+  { text:'上天入地', pinyin:'shàng tiān rù dì', first:'上', last:'地' },
+  { text:'上下一心', pinyin:'shàng xià yī xīn', first:'上', last:'心' },
+  { text:'上善若水', pinyin:'shàng shàn ruò shuǐ', first:'上', last:'水' },
+  { text:'上行下效', pinyin:'shàng xíng xià xiào', first:'上', last:'效' },
+  { text:'地久天长', pinyin:'dì jiǔ tiān cháng', first:'地', last:'长' },
+  { text:'地大物博', pinyin:'dì dà wù bó', first:'地', last:'博' },
+  { text:'地广人稀', pinyin:'dì guǎng rén xī', first:'地', last:'稀' },
+  { text:'地老天荒', pinyin:'dì lǎo tiān huāng', first:'地', last:'荒' },
+  { text:'开门见山', pinyin:'kāi mén jiàn shān', first:'开', last:'山' },
+  { text:'山清水秀', pinyin:'shān qīng shuǐ xiù', first:'山', last:'秀' },
+  { text:'画龙点睛', pinyin:'huà lóng diǎn jīng', first:'画', last:'睛' },
+  { text:'三心二意', pinyin:'sān xīn èr yì', first:'三', last:'意' },
+  { text:'见义勇为', pinyin:'jiàn yì yǒng wéi', first:'见', last:'为' },
+  { text:'鸟语花香', pinyin:'niǎo yǔ huā xiāng', first:'鸟', last:'香' },
+  { text:'五光十色', pinyin:'wǔ guāng shí sè', first:'五', last:'色' },
+  { text:'千山万水', pinyin:'qiān shān wàn shuǐ', first:'千', last:'水' },
+  { text:'水落石出', pinyin:'shuǐ luò shí chū', first:'水', last:'出' },
+  { text:'出生入死', pinyin:'chū shēng rù sǐ', first:'出', last:'死' },
+  { text:'马到成功', pinyin:'mǎ dào chéng gōng', first:'马', last:'功' },
+  { text:'花好月圆', pinyin:'huā hǎo yuè yuán', first:'花', last:'圆' },
+  { text:'九牛一毛', pinyin:'jiǔ niú yī máo', first:'九', last:'毛' },
+  { text:'毛手毛脚', pinyin:'máo shǒu máo jiǎo', first:'毛', last:'脚' },
+  { text:'七上八下', pinyin:'qī shàng bā xià', first:'七', last:'下' },
+  { text:'下不为例', pinyin:'xià bù wéi lì', first:'下', last:'例' },
+  { text:'火上加油', pinyin:'huǒ shàng jiā yóu', first:'火', last:'油' },
+  { text:'心花怒放', pinyin:'xīn huā nù fàng', first:'心', last:'放' },
+  { text:'放虎归山', pinyin:'fàng hǔ guī shān', first:'放', last:'山' },
+  { text:'大同小异', pinyin:'dà tóng xiǎo yì', first:'大', last:'异' },
+  { text:'异口同声', pinyin:'yì kǒu tóng shēng', first:'异', last:'声' },
+  { text:'声东击西', pinyin:'shēng dōng jī xī', first:'声', last:'西' },
+  { text:'万里无云', pinyin:'wàn lǐ wú yún', first:'万', last:'云' },
+  { text:'云开日出', pinyin:'yún kāi rì chū', first:'云', last:'出' },
+  { text:'四面八方', pinyin:'sì miàn bā fāng', first:'四', last:'方' },
+  { text:'方方正正', pinyin:'fāng fāng zhèng zhèng', first:'方', last:'正' },
+  { text:'正中下怀', pinyin:'zhèng zhōng xià huái', first:'正', last:'怀' },
+  { text:'十全十美', pinyin:'shí quán shí měi', first:'十', last:'美' },
+  { text:'美中不足', pinyin:'měi zhōng bù zú', first:'美', last:'足' },
+  { text:'足不出户', pinyin:'zú bù chū hù', first:'足', last:'户' },
+  { text:'天天向上', pinyin:'tiān tiān xiàng shàng', first:'天', last:'上' },
+  { text:'心想事成', pinyin:'xīn xiǎng shì chéng', first:'心', last:'成' },
+  { text:'成双成对', pinyin:'chéng shuāng chéng duì', first:'成', last:'对' },
+  { text:'对牛弹琴', pinyin:'duì niú tán qín', first:'对', last:'琴' },
+  { text:'百发百中', pinyin:'bǎi fā bǎi zhòng', first:'百', last:'中' },
+  { text:'春风化雨', pinyin:'chūn fēng huà yǔ', first:'春', last:'雨' },
+  { text:'雨过天晴', pinyin:'yǔ guò tiān qíng', first:'雨', last:'晴' },
+  { text:'龙飞凤舞', pinyin:'lóng fēi fèi wǔ', first:'龙', last:'舞' },
+  { text:'千军万马', pinyin:'qiān jūn wàn mǎ', first:'千', last:'马' },
+  { text:'马不停蹄', pinyin:'mǎ bù tíng tí', first:'马', last:'蹄' },
+  { text:'手忙脚乱', pinyin:'shǒu máng jiǎo luàn', first:'手', last:'乱' },
+  { text:'名列前茅', pinyin:'míng liè qián máo', first:'名', last:'茅' },
+  { text:'虎头蛇尾', pinyin:'hǔ tóu shé wěi', first:'虎', last:'尾' },
+  { text:'一路平安', pinyin:'yī lù píng ān', first:'一', last:'安' },
+  { text:'安安静静', pinyin:'ān ān jìng jìng', first:'安', last:'静' },
+  { text:'金口玉言', pinyin:'jīn kǒu yù yán', first:'金', last:'言' },
+  { text:'言而有信', pinyin:'yán ér yǒu xìn', first:'言', last:'信' },
+  { text:'东张西望', pinyin:'dōng zhāng xī wàng', first:'东', last:'望' },
+  { text:'望子成龙', pinyin:'wàng zǐ chéng lóng', first:'望', last:'龙' },
+  { text:'龙头蛇尾', pinyin:'lóng tóu shé wěi', first:'龙', last:'尾' },
+  { text:'口是心非', pinyin:'kǒu shì xīn fēi', first:'口', last:'非' },
+  { text:'飞蛾扑火', pinyin:'fēi é pū huǒ', first:'飞', last:'火' },
+  { text:'火冒三丈', pinyin:'huǒ mào sān zhàng', first:'火', last:'丈' },
+  { text:'白日做梦', pinyin:'bái rì zuò mèng', first:'白', last:'梦' },
+  { text:'风和日暖', pinyin:'fēng hé rì nuǎn', first:'风', last:'暖' },
+  { text:'千言万语', pinyin:'qiān yán wàn yǔ', first:'千', last:'语' },
+  { text:'惊天动地', pinyin:'jīng tiān dòng dì', first:'惊', last:'地' },
+  { text:'高高兴兴', pinyin:'gāo gāo xìng xìng', first:'高', last:'兴' },
+  { text:'兴高采烈', pinyin:'xìng gāo cǎi liè', first:'兴', last:'烈' },
+  { text:'冰天雪地', pinyin:'bīng tiān xuě dì', first:'冰', last:'地' },
+  { text:'说三道四', pinyin:'shuō sān dào sì', first:'说', last:'四' },
+  { text:'四海为家', pinyin:'sì hǎi wéi jiā', first:'四', last:'家' },
+  { text:'家家户户', pinyin:'jiā jiā hù hù', first:'家', last:'户' },
+  { text:'泪如雨下', pinyin:'lèi rú yǔ xià', first:'泪', last:'下' },
+  { text:'下笔成文', pinyin:'xià bǐ chéng wén', first:'下', last:'文' },
+  { text:'从头到尾', pinyin:'cóng tóu dào wěi', first:'从', last:'尾' },
+  { text:'尾大不掉', pinyin:'wěi dà bù diào', first:'尾', last:'掉' },
+  { text:'光明正大', pinyin:'guāng míng zhèng dà', first:'光', last:'大' },
+  { text:'大大小小', pinyin:'dà dà xiǎo xiǎo', first:'大', last:'小' },
+  { text:'千辛万苦', pinyin:'qiān xīn wàn kǔ', first:'千', last:'苦' },
+  { text:'万众一心', pinyin:'wàn zhòng yī xīn', first:'万', last:'心' },
+  { text:'一鸣惊人', pinyin:'yī míng jīng rén', first:'一', last:'人' },
+  { text:'天南地北', pinyin:'tiān nán dì běi', first:'天', last:'北' },
+  { text:'心平气和', pinyin:'xīn píng qì hé', first:'心', last:'和' },
+  { text:'和风细雨', pinyin:'hé fēng xì yǔ', first:'和', last:'雨' },
+  { text:'雨后天晴', pinyin:'yǔ hòu tiān qíng', first:'雨', last:'晴' },
+  { text:'一见如故', pinyin:'yī jiàn rú gù', first:'一', last:'故' },
+  { text:'龙争虎斗', pinyin:'lóng zhēng hǔ dòu', first:'龙', last:'斗' },
+  { text:'一字千金', pinyin:'yī zì qiān jīn', first:'一', last:'金' },
+  { text:'金枝玉叶', pinyin:'jīn zhī yù yè', first:'金', last:'叶' },
+  { text:'叶公好龙', pinyin:'yè gōng hào lóng', first:'叶', last:'龙' },
+  { text:'龙马精神', pinyin:'lóng mǎ jīng shén', first:'龙', last:'神' },
+  { text:'大功告成', pinyin:'dà gōng gào chéng', first:'大', last:'成' },
+  { text:'成千上万', pinyin:'chéng qiān shàng wàn', first:'成', last:'万' },
+  { text:'火树银花', pinyin:'huǒ shù yín huā', first:'火', last:'花' },
+  { text:'花红柳绿', pinyin:'huā hóng liǔ lǜ', first:'花', last:'绿' },
+  { text:'山高水长', pinyin:'shān gāo shuǐ cháng', first:'山', last:'长' },
+  { text:'有口无心', pinyin:'yǒu kǒu wú xīn', first:'有', last:'心' },
+  { text:'有头有尾', pinyin:'yǒu tóu yǒu wěi', first:'有', last:'尾' },
+  { text:'有始有终', pinyin:'yǒu shǐ yǒu zhōng', first:'有', last:'终' },
+  { text:'有说有笑', pinyin:'yǒu shuō yǒu xiào', first:'有', last:'笑' },
+  { text:'心满意足', pinyin:'xīn mǎn yì zú', first:'心', last:'足' },
+  { text:'足智多谋', pinyin:'zú zhì duō móu', first:'足', last:'谋' },
+  { text:'三言两语', pinyin:'sān yán liǎng yǔ', first:'三', last:'语' },
+  { text:'语重心长', pinyin:'yǔ zhòng xīn cháng', first:'语', last:'长' },
+  { text:'语无伦次', pinyin:'yǔ wú lún cì', first:'语', last:'次' },
+  { text:'风和日丽', pinyin:'fēng hé rì lì', first:'风', last:'丽' },
+  { text:'顶天立地', pinyin:'dǐng tiān lì dì', first:'顶', last:'地' },
+  { text:'自言自语', pinyin:'zì yán zì yǔ', first:'自', last:'语' },
+];
+
+// ====== VALIDATION ======
+function validateDataset(d){var e=[],s=new Set();for(var i=0;i<d.length;i++){var x=d[i];if(!x.text||x.text.length!==4)e.push('['+i+'] len');if(!x.pinyin||x.pinyin.trim()==='')e.push('['+i+'] py');if(!x.first||x.first.length!==1)e.push('['+i+'] f');if(!x.last||x.last.length!==1)e.push('['+i+'] l');if(x.text&&x.first!==x.text[0])e.push('['+i+'] f!=');if(x.text&&x.last!==x.text[3])e.push('['+i+'] l!=');if(s.has(x.text))e.push('['+i+'] dup');if(x.text)s.add(x.text)}return e}
+function buildAdjacencyGraph(d){var g=new Map();for(var i=0;i<d.length;i++){if(!g.has(d[i].first))g.set(d[i].first,[]);g.get(d[i].first).push(d[i])}return g}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}}
+function findChainPath(g,d,len){len=len||10;var cand=[];for(var i=0;i<d.length;i++){var c=g.get(d[i].last)||[];if(c.length>=4)cand.push(d[i])}if(!cand.length)return null;shuffle(cand);function dfs(p,v){if(p.length===len)return p.slice();var last=p[p.length-1];var ns=g.get(last.last)||[];var f=[];for(var i=0;i<ns.length;i++){if(v.has(ns[i].text))continue;if(p.length===len-1){f.push(ns[i]);continue}var nc=g.get(ns[i].last)||[];if(nc.length>=4)f.push(ns[i])}shuffle(f);for(var i=0;i<f.length;i++){v.add(f[i].text);var r=dfs(p.concat([f[i]]),v);if(r)return r;v.delete(f[i].text)}return null}for(var s=0;s<Math.min(cand.length,100);s++){var v=new Set([cand[s].text]);var r=dfs([cand[s]],v);if(r)return r}return null}
+function validateGameReady(d){var e=validateDataset(d);if(e.length)return{ready:false,error:'数据错误: '+e.slice(0,3).join('; ')};var g=buildAdjacencyGraph(d);var p=findChainPath(g,d,10);if(!p)return{ready:false,error:'成语库无法组成完整的10轮游戏'};return{ready:true,path:p,graph:g}}
+
+// ====== STATE ======
+var state, timer;
+var names=[[{n:'宝贝',e:'⭐'},{n:'宝宝',e:'🌟'},{n:'小朋友',e:'⭐'}],[{n:'家长',e:'❤️'},{n:'爸爸',e:'💙'},{n:'妈妈',e:'💗'},{n:'爷爷',e:'👴'},{n:'奶奶',e:'👵'}]];
+var ni=[0,0];
+
+function fresh(){state={p:[{n:names[0][0].n,s:0,h:[]},{n:names[1][0].n,s:0,h:[]}],r:1,max:10,path:null,graph:null,turn:null,phase:'start',shown:false,ft:0,cd:15,_newCard:null};stopTimer()}
+
+function pid(){return(state.r%2===1)?0:1}
+
+function begin(gr){state.path=gr.path;state.graph=gr.graph;state.r=1;state.p[0].s=0;state.p[0].h=[];state.p[1].s=0;state.p[1].h=[];state.phase='playing';state.turn=null;state.ft=0;gen(state.r);startTimer();render()}
+
+function gen(r){var c=state.path[r-1];var t=r===1?c.first:state.path[r-2].last;var d=genDist(t,c);var o=[c].concat(d);shuffle(o);state.turn={correct:c,options:o,ans:null}}
+
+function genDist(tc,ci,n){n=n||3;var p=[];for(var i=0;i<IDIOMS.length;i++){if(IDIOMS[i].text!==ci.text&&IDIOMS[i].first!==tc)p.push(IDIOMS[i])}shuffle(p);return p.slice(0,n)}
+
+function startTimer(){stopTimer();state.cd=15;timer=setInterval(function(){state.cd--;if(state.cd<=0){timeUp();return}if(state.phase==='playing')updateTimer()},1000)}
+function stopTimer(){if(timer){clearInterval(timer);timer=null}}
+function updateTimer(){var el=document.getElementById('td');if(!el)return;el.textContent=state.cd;el.className='timer'+(state.cd<=5?' urgent':'')}
+function timeUp(){if(state.phase!=='playing')return;stopTimer();var wi=-1;for(var i=0;i<state.turn.options.length;i++){if(state.turn.options[i].text!==state.turn.correct.text){wi=i;break}}if(wi<0)wi=0;pick(wi)}
+
+function pick(i){if(state.phase!=='playing')return;stopTimer();var sel=state.turn.options[i];var ok=sel.text===state.turn.correct.text;state.turn.ans=i;var pi=pid();if(ok){state.p[pi].s++;state._newCard={pi:pi,idx:state.p[pi].h.length};state.p[pi].h.push({idiom:sel,ok:true});if(!state.shown)state.shown=true;sfxOk()}else{state.p[pi].h.push({idiom:state.turn.correct,ok:false});sfxNo()}state.phase='feedback';state.ft=Date.now()+1500;render()}
+
+function dismiss(){if(Date.now()<state.ft)return;if(state.r>=state.max){end();render()}else{next();render()}}
+function next(){state.r++;state.phase='playing';gen(state.r);startTimer()}
+function end(){state.phase='result'}
+function again(){var gr=validateGameReady(IDIOMS);if(!gr.ready){alert(gr.error);return}fresh();begin(gr)}
+
+// ====== AUDIO ======
+var audioCtx=null;
+function getAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx}
+function sfxOk(){try{var a=getAudio(),o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.setValueAtTime(523,a.currentTime);o.frequency.setValueAtTime(659,a.currentTime+0.1);o.frequency.setValueAtTime(784,a.currentTime+0.2);g.gain.setValueAtTime(0.3,a.currentTime);g.gain.exponentialRampToValueAtTime(0.01,a.currentTime+0.4);o.connect(g);g.connect(a.destination);o.start(a.currentTime);o.stop(a.currentTime+0.4)}catch(e){}}
+function sfxNo(){try{var a=getAudio(),o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.setValueAtTime(200,a.currentTime);g.gain.setValueAtTime(0.15,a.currentTime);g.gain.exponentialRampToValueAtTime(0.01,a.currentTime+0.3);o.connect(g);g.connect(a.destination);o.start(a.currentTime);o.stop(a.currentTime+0.3)}catch(e){}}
+function initAudio(){if(!window.speechSynthesis)return;try{var d=new SpeechSynthesisUtterance('');d.volume=0;speechSynthesis.speak(d)}catch(e){}}
+function speak(t){if(!window.speechSynthesis)return;try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=0.8;u.volume=1;speechSynthesis.speak(u)}catch(e){}}
+
+// ====== RENDER ======
+var app=document.getElementById('app');
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function cyc(s){ni[s]=(ni[s]+1)%names[s].length;state.p[s].n=names[s][ni[s]].n;render()}
+function stars(n){var s='';for(var i=0;i<n;i++)s+='⭐';return s||'—'}
+
+function renderStart(){
+  app.innerHTML='<div class="start-screen"><h1>成语接龙</h1><p class="subtitle">亲子版</p>'+
+    '<div class="name-row">'+
+      '<div class="name-card" onclick="cyc(0)"><span class="nc-icon">'+names[0][ni[0]].e+'</span><span class="nc-label">小朋友</span><div class="nc-name">'+esc(state.p[0].n)+'</div></div>'+
+      '<div class="name-card" onclick="cyc(1)"><span class="nc-icon">❤️</span><span class="nc-label">大朋友</span><div class="nc-name">'+esc(state.p[1].n)+'</div></div>'+
+    '</div>'+
+    '<button class="btn-start" onclick="go()">开始游戏</button><p class="instruction">轮流选择正确的成语，比比谁收集的多!</p></div>';
+}
+
+function go(){var gr=window._cache||validateGameReady(IDIOMS);if(!gr.ready){alert(gr.error);return}fresh();begin(gr)}
+
+// Render collection cards for a player (with animation only on newest card)
+function renderCards(pi){var p=state.p[pi];if(p.h.length===0)return'<span class="col-card empty">?</span>';var html='';var newest=state._newCard;for(var i=0;i<p.h.length;i++){var hi=p.h[i],isNew=newest&&newest.pi===pi&&newest.idx===i;html+='<span class="col-card'+(hi.ok?'':' revealed')+(isNew?' pop':'')+'">'+esc(hi.idiom.text)+'<span class="cc-py">'+esc(hi.idiom.pinyin)+'</span>'+(hi.ok?'':' 💡')+'</span>'}return html}
+function renderCollection(pi){var p=state.p[pi],active=(state.phase==='playing'&&pid()===pi);var colCls='collection'+(active?' active-col':'');var hdrCls='col-header'+(pi===0?' child-col':' parent-col');var icon=pi===0?'⭐':'❤️';var cnt=p.h.filter(function(h){return h.ok}).length;return'<div class="'+colCls+'"><div class="'+hdrCls+'">'+icon+' '+esc(p.n)+' 的收集 <span class="col-count">'+cnt+'个</span></div><div class="col-cards">'+renderCards(pi)+'</div></div>'}
+
+function renderGame(){
+  var pi=pid(),r=state.r,t=state.turn;
+  var hint='';if(r===1)hint='从这个字开始: <b>'+esc(t.correct.first)+'</b>';
+  else{var last=state.path[r-2];hint='上一个: <b>'+esc(last.text)+'</b> → 以 <b>'+esc(last.last)+'</b> 开头'}
+  var ops='';for(var i=0;i<t.options.length;i++){var o=t.options[i];var cl='';if(state.phase==='feedback'&&t.ans!==null){if(o.text===t.correct.text)cl=' correct';else if(i===t.ans&&o.text!==t.correct.text)cl=' wrong'}ops+='<button class="option-btn'+cl+'" onclick="pick('+i+')"><span>'+esc(o.text)+'</span><span class="py">'+esc(o.pinyin)+'</span></button>'}
+  var tc='timer'+(state.cd<=5?' urgent':'');
+
+  app.innerHTML=
+    '<div class="round-bar"><span class="round-text">第 '+r+'/10 轮</span><span class="'+tc+'" id="td">'+state.cd+'s</span></div>'+
+    '<div class="turn-banner '+(pi===0?'child':'parent')+'">轮到 '+esc(state.p[pi].n)+' 答题!</div>'+
+    '<div class="hint-box">'+hint+'</div>'+
+    '<div class="option-grid">'+ops+'</div>'+
+    renderCollection(pi===0?0:1)+
+    renderCollection(pi===0?1:0);
+
+  if(!state.shown){var ov=document.createElement('div');ov.className='tut-overlay';ov.innerHTML='<div class="tut-arrow">👇</div><div class="tut-text">选一个成语接下去!</div>';ov.onclick=function(){ov.remove();state.shown=true};document.body.appendChild(ov)}
+}
+
+function renderFb(){
+  var t=state.turn,ok=t.options[t.ans].text===t.correct.text;
+  var icon=ok?'✅':'😊',msg=ok?'太棒了!':'',det='';
+  if(!ok)det='正确答案:<br><b>'+esc(t.correct.text)+'</b><br>'+esc(t.correct.pinyin);
+  speak(t.correct.text);
+  var ov=document.createElement('div');ov.className='fb-overlay';
+  if(ok){ov.innerHTML='<div class="fb-card"><div class="fb-icon">'+icon+'</div><div class="fb-msg">'+msg+'</div></div>';document.body.appendChild(ov);setTimeout(function(){ov.remove();dismiss()},1500)}
+  else{ov.onclick=function(){if(Date.now()<state.ft)return;ov.remove();dismiss()};ov.innerHTML='<div class="fb-card"><div class="fb-icon">'+icon+'</div>'+(msg?'<div class="fb-msg">'+msg+'</div>':'')+'<div class="fb-detail">'+det+'</div><div class="fb-tap">点击继续</div></div>';document.body.appendChild(ov)}
+}
+
+function renderResult(){
+  var s0=state.p[0].s,s1=state.p[1].s,tie=s0===s1,w=tie?-1:(s0>s1?0:1);
+  app.innerHTML='<div class="result-screen"><div class="trophy">'+(tie?'🤝':'🏆')+'</div><h2>'+(tie?'平局!':esc(state.p[w].n)+' 赢了!')+'</h2>'+
+    '<div class="result-scores">'+
+      '<div class="result-player'+(w===0?' winner':'')+'"><div class="rp-name">⭐ '+esc(state.p[0].n)+'</div><div class="rp-stars">'+stars(s0)+'</div></div>'+
+      '<div class="result-player'+(w===1?' winner':'')+'"><div class="rp-name">❤️ '+esc(state.p[1].n)+'</div><div class="rp-stars">'+stars(s1)+'</div></div>'+
+    '</div>'+
+    '<div class="collection"><div class="col-header child-col">⭐ '+esc(state.p[0].n)+' 的收集</div><div class="col-cards">'+renderCards(0)+'</div></div>'+
+    '<div class="collection"><div class="col-header parent-col">❤️ '+esc(state.p[1].n)+' 的收集</div><div class="col-cards">'+renderCards(1)+'</div></div>'+
+    '<button class="btn-replay" style="margin-top:20px;" onclick="again()">再玩一局</button>'+
+    '<button class="btn-replay" style="border-color:#aaa;color:#aaa;" onclick="same()">同样成语再来</button></div>';
+}
+function same(){var oldPath=state.path.slice(),oldGraph=state.graph;fresh();begin({ready:true,path:oldPath,graph:oldGraph})}
+
+function render(){
+  var ovs=document.querySelectorAll('.fb-overlay,.tut-overlay');for(var i=0;i<ovs.length;i++)ovs[i].remove();
+  if(state.phase==='start')renderStart();else if(state.phase==='playing')renderGame();else if(state.phase==='feedback')renderFb();else if(state.phase==='result')renderResult();
+}
+
+// ====== INIT ======
+!function(){fresh();initAudio();window._cache=validateGameReady(IDIOMS);if(window._cache.ready)console.log('Ready. '+IDIOMS.length+' idioms.');else console.warn('Not ready:',window._cache.error);render()}();
+</script>
+</body>
+</html>

@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宇宙标尺投篮挑战</title>
+<style>
+    /* ========== 全局样式 ========== */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: #2c2416;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+        /* 模拟纸张纹理背景 */
+        background-image:
+            radial-gradient(ellipse at 50% 50%, #3a3020 0%, #1a1510 100%);
+    }
+
+    #game-wrapper {
+        position: relative;
+        width: 900px;
+        height: 650px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow:
+            0 0 60px rgba(255, 180, 60, 0.15),
+            0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    /* 覆盖在 Canvas 上的 UI 提示 */
+    .overlay-hint {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 13px;
+        letter-spacing: 1px;
+        pointer-events: none;
+        transition: opacity 0.5s;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div class="overlay-hint" id="hint">按住鼠标或空格键蓄力，松手投出篮球</div>
+</div>
+
+<script>
+(function() {
+    /* =================================================================
+     *  宇宙标尺投篮挑战 - Cosmic Scale Basketball Challenge
+     *  纯 Canvas 手绘风格物理投篮小游戏
+     * ================================================================= */
+
+    // ---------- 获取 DOM 元素 ----------
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('game-wrapper');
+    const hintEl = document.getElementById('hint');
+
+    // ---------- 画布尺寸 ----------
+    const W = 900;   // 内部分辨率宽度
+    const H = 650;   // 内部分辨率高度
+    canvas.width = W;
+    canvas.height = H;
+
+    // roundRect 兼容补丁（部分旧浏览器不支持 CanvasRenderingContext2D.roundRect）
+    if (!ctx.roundRect) {
+        ctx.roundRect = function(x, y, w, h, r) {
+            if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
+            ctx.beginPath();
+            ctx.moveTo(x + r.tl, y);
+            ctx.lineTo(x + w - r.tr, y);
+            ctx.arcTo(x + w, y, x + w, y + r.tr, r.tr);
+            ctx.lineTo(x + w, y + h - r.br);
+            ctx.arcTo(x + w, y + h, x + w - r.br, y + h, r.br);
+            ctx.lineTo(x + r.bl, y + h);
+            ctx.arcTo(x, y + h, x, y + h - r.bl, r.bl);
+            ctx.lineTo(x, y + r.tl);
+            ctx.arcTo(x, y, x + r.tl, y, r.tl);
+            ctx.closePath();
+        };
+    }
+
+    /* =================================================================
+     *  游戏常量与配置
+     * ================================================================= */
+
+    // 物理参数
+    const GRAVITY = 0.45;          // 重力加速度 (像素/帧²)
+    const GROUND_Y = 570;          // 地面线 y 坐标
+    const RULER_X = 480;           // 标尺塔 x 坐标（偏右）
+    const PLAYER_X = 300;          // 火柴人站立 x 坐标（偏左）
+    const BALL_START_X = 320;      // 篮球起始 x
+    const BALL_START_Y = 480;      // 篮球起始 y（球员手部高度）
+    const MAX_POWER = 100;         // 最大蓄力值
+    const POWER_CHARGE_RATE = 1.4; // 每帧蓄力增长速度
+    const TOTAL_ATTEMPTS = 10;     // 总尝试次数
+    const MAX_CONSECUTIVE_MISS = 3; // 连续失误上限
+
+    // 篮球半径
+    const BALL_RADIUS = 14;
+
+    /* -----------------------------------------------------------------
+     *  标尺刻度定义
+     *  每个刻度包含：显示文字、在标尺上的 y 坐标、对应分值
+     *  刻度 y 值从底部往顶部逐渐稀疏（间距递增）
+     * ----------------------------------------------------------------- */
+    const SCALE_MARKS = [
+        { label: '25m',    y: 540, points: 10,   logValue: 1.40 },
+        { label: '60m',    y: 500, points: 25,   logValue: 1.78 },
+        { label: '75m',    y: 470, points: 40,   logValue: 1.88 },
+        { label: '110m',   y: 435, points: 60,   logValue: 2.04 },
+        { label: '400m',   y: 385, points: 120,  logValue: 2.60 },
+        { label: '800m',   y: 335, points: 200,  logValue: 2.90 },
+        { label: '1000m',  y: 290, points: 300,  logValue: 3.00 },
+        { label: '8000m',  y: 225, points: 600,  logValue: 3.90 },
+        { label: '10⁹m',   y: 140, points: 1500, logValue: 9.00 },
+        { label: '10¹⁰m',  y: 65,  points: 4000, logValue: 10.00 }
+    ];
+
+    const RULER_TOP = SCALE_MARKS[SCALE_MARKS.length - 1].y - 15;    // 标尺顶端
+    const RULER_BOTTOM = SCALE_MARKS[0].y + 20;                       // 标尺底端
+
+    /* =================================================================
+     *  游戏状态
+     * ================================================================= */
+    const STATE = { START: 'start', PLAYING: 'playing', GAMEOVER: 'gameover' };
+
+    // 核心状态变量
+    let gameState = STATE.START;
+    let score = 0;                  // 总分
+    let highScore = 0;              // 最高分（本次会话）
+    let comboCount = 0;             // 连续进步次数
+    let attemptsLeft = TOTAL_ATTEMPTS;
+    let consecutiveMisses = 0;      // 连续失误次数
+    let lastMarkIndex = -1;         // 上次投中的刻度索引
+
+    // 蓄力相关
+    let isCharging = false;         // 是否正在蓄力
+    let power = 0;                  // 当前蓄力值 (0 ~ MAX_POWER)
+
+    // 篮球物理状态
+    let ballActive = false;         // 篮球是否在飞行中
+    let ballX = BALL_START_X;
+    let ballY = BALL_START_Y;
+    let ballVX = 0;                 // 水平速度
+    let ballVY = 0;                 // 垂直速度（屏幕坐标，负值=向上）
+    let ballTrail = [];             // 尾迹粒子数组 [{x, y, alpha}]
+    let ballPeakY = BALL_START_Y;   // 本次飞行达到的最高点（y 值最小）
+    let throwScored = false;        // 本次投掷是否已计分
+
+    // 特效
+    let scorePopup = null;          // 得分弹出文字 {text, x, y, alpha, vy}
+    let particles = [];             // 庆祝粒子
+    let screenShake = 0;            // 屏幕震动幅度
+
+    // 动画计时器
+    let throwAnimTimer = 0;         // 投掷动作计时器（用于手臂动画）
+    let frameCount = 0;
+    let maxComboThisRound = 0;      // 本轮最高连击（用于结算显示）
+
+    // 高分存储（尝试使用 localStorage）
+    try {
+        const saved = localStorage.getItem('cosmicBasketballHighScore');
+        if (saved) highScore = parseInt(saved, 10) || 0;
+    } catch (e) { /* 忽略存储错误 */ }
+
+    /* =================================================================
+     *  工具函数
+     * ================================================================= */
+
+    /** 根据 y 坐标确定篮球达到了哪个最高刻度。
+     *  从高往低检查，返回第一个 y 值 >= ballY 的刻度索引。
+     *  如果球没达到任何刻度（比最低刻度还低），返回 -1。 */
+    function getMarkIndexByY(ballY) {
+        // 从最高刻度（数组末尾）往低检查
+        for (let i = SCALE_MARKS.length - 1; i >= 0; i--) {
+            if (ballY <= SCALE_MARKS[i].y) {
+                return i;
+            }
+        }
+        return -1; // 未达到任何刻度
+    }
+
+    /** 获取两个值之间的线性插值 */
+    function lerp(a, b, t) {
+        return a + (b - a) * t;
+    }
+
+    /** 限制数值范围 */
+    function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+    }
+
+    /** 生成随机浮点数 [min, max) */
+    function rand(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    /* =================================================================
+     *  绘制函数 —— 手绘简笔画风格
+     * ================================================================= */
+
+    /** 绘制背景天空和地面 */
+    function drawBackground() {
+        // --- 天空渐变（暖色调，从浅蓝到奶油色） ---
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+        skyGrad.addColorStop(0, '#b8d4e3');     // 顶部淡蓝
+        skyGrad.addColorStop(0.3, '#d4e0e8');
+        skyGrad.addColorStop(0.6, '#f0e8d8');   // 中部暖奶油
+        skyGrad.addColorStop(1, '#e8dcc8');     // 底部暖沙色
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, GROUND_Y);
+
+        // --- 地面 ---
+        ctx.fillStyle = '#c4a882';
+        ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+        // 地面顶部草地线
+        ctx.strokeStyle = '#8b9a6b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        for (let x = 0; x < W; x += 12) {
+            ctx.lineTo(x + 6, GROUND_Y - rand(2, 6));
+            ctx.lineTo(x + 12, GROUND_Y);
+        }
+        ctx.stroke();
+
+        // 地面纹理（几条随意的横线）
+        ctx.strokeStyle = 'rgba(139, 119, 90, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+            const gy = GROUND_Y + 15 + i * 18;
+            ctx.beginPath();
+            ctx.moveTo(30, gy);
+            ctx.lineTo(W - 30, gy + rand(-3, 3));
+            ctx.stroke();
+        }
+    }
+
+    /** 绘制太阳 */
+    function drawSun() {
+        const sx = 720, sy = 90, sr = 40;
+
+        // 光晕
+        const glowGrad = ctx.createRadialGradient(sx, sy, sr * 0.6, sx, sy, sr * 2.2);
+        glowGrad.addColorStop(0, 'rgba(255, 220, 140, 0.7)');
+        glowGrad.addColorStop(0.5, 'rgba(255, 200, 100, 0.2)');
+        glowGrad.addColorStop(1, 'rgba(255, 180, 80, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 太阳本体
+        ctx.fillStyle = '#f9d170';
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 太阳光芒线（手绘风格放射线）
+        ctx.strokeStyle = '#f9d170';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2 + 0.2;
+            const len = sr + rand(10, 22);
+            ctx.beginPath();
+            ctx.moveTo(sx + Math.cos(angle) * sr * 0.85, sy + Math.sin(angle) * sr * 0.85);
+            ctx.lineTo(sx + Math.cos(angle) * len, sy + Math.sin(angle) * len);
+            ctx.stroke();
+        }
+    }
+
+    /** 绘制云朵（简笔画风格） */
+    function drawClouds() {
+        const clouds = [
+            { x: 100, y: 100, s: 1.0 },
+            { x: 650, y: 180, s: 0.7 },
+            { x: 50,  y: 220, s: 0.5 },
+            { x: 780, y: 300, s: 0.55 }
+        ];
+
+        clouds.forEach(c => {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.strokeStyle = 'rgba(180, 190, 200, 0.5)';
+            ctx.lineWidth = 1.5;
+
+            const cx = c.x, cy = c.y, s = c.s;
+
+            // 云朵 = 几个交叠的圆
+            const circles = [
+                [cx, cy, 22 * s],
+                [cx + 18 * s, cy - 8 * s, 16 * s],
+                [cx - 16 * s, cy + 2 * s, 14 * s],
+                [cx + 30 * s, cy + 4 * s, 12 * s],
+                [cx - 10 * s, cy - 12 * s, 15 * s]
+            ];
+
+            circles.forEach(([px, py, pr]) => {
+                ctx.beginPath();
+                ctx.arc(px, py, pr, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+        });
+    }
+
+    /** 绘制宇宙顶部的星星 */
+    function drawStars() {
+        const stars = [
+            [140, 25], [300, 15], [480, 35], [620, 20],
+            [750, 10], [810, 45], [350, 50], [550, 8]
+        ];
+        ctx.fillStyle = '#ffffff';
+        stars.forEach(([sx, sy]) => {
+            // 四角星形（简笔画十字星）
+            const size = rand(2.5, 5);
+            ctx.beginPath();
+            // 水平线
+            ctx.moveTo(sx - size, sy);
+            ctx.lineTo(sx + size, sy);
+            // 垂直线
+            ctx.moveTo(sx, sy - size);
+            ctx.lineTo(sx, sy + size);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            // 中心点
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    /** 绘制标尺塔 */
+    function drawRuler() {
+        const rx = RULER_X;
+
+        // --- 塔身主杆 ---
+        // 用两条竖线模拟手绘风格的粗杆
+        ctx.strokeStyle = '#5c3d2e';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(rx, RULER_TOP);
+        ctx.lineTo(rx, RULER_BOTTOM);
+        ctx.stroke();
+
+        // 杆子两侧微偏移的线，营造"手绘双线"质感
+        ctx.strokeStyle = 'rgba(92, 61, 46, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(rx - 4, RULER_TOP);
+        ctx.lineTo(rx - 4, RULER_BOTTOM);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(rx + 3, RULER_TOP + 10);
+        ctx.lineTo(rx + 3, RULER_BOTTOM - 5);
+        ctx.stroke();
+
+        // --- 底座三角支架 ---
+        ctx.strokeStyle = '#5c3d2e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(rx, RULER_BOTTOM);
+        ctx.lineTo(rx - 30, GROUND_Y);   // 左支撑
+        ctx.moveTo(rx, RULER_BOTTOM);
+        ctx.lineTo(rx + 30, GROUND_Y);   // 右支撑
+        // 横梁
+        ctx.moveTo(rx - 22, GROUND_Y - 18);
+        ctx.lineTo(rx + 22, GROUND_Y - 18);
+        ctx.stroke();
+
+        // --- 刻度线和标注 ---
+        SCALE_MARKS.forEach((mark, index) => {
+            const my = mark.y;
+
+            // 水平刻度线（从标尺杆向右延伸）
+            ctx.strokeStyle = '#3a2a1a';
+            ctx.lineWidth = (index >= 7) ? 2.5 : 2;  // 高刻度线更粗
+
+            // 左侧短线和右侧长线
+            ctx.beginPath();
+            ctx.moveTo(rx - 8, my);
+            ctx.lineTo(rx + 8, my);
+            ctx.stroke();
+
+            // 右侧延伸线（标注线）
+            ctx.strokeStyle = 'rgba(58, 42, 26, 0.6)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(rx + 10, my);
+            ctx.lineTo(rx + 55, my);
+            ctx.stroke();
+            ctx.setLineDash([]); // 重置虚线
+
+            // 刻度文字
+            ctx.fillStyle = '#2a1a0a';
+            ctx.font = `${index >= 7 ? 'bold ' : ''}${index >= 8 ? 15 : 13}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.fillText(mark.label, rx + 14, my + 4);
+
+            // 靶心标记（小菱形或圆点）
+            ctx.fillStyle = '#c0392b';
+            ctx.beginPath();
+            ctx.arc(rx, my, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 高刻度增加特殊装饰
+            if (index >= 8) {
+                ctx.fillStyle = 'rgba(192, 57, 43, 0.3)';
+                ctx.beginPath();
+                ctx.arc(rx, my, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        // --- 标尺塔顶部装饰（旗帜/箭头） ---
+        ctx.fillStyle = '#c0392b';
+        ctx.beginPath();
+        ctx.moveTo(rx, RULER_TOP - 20);
+        ctx.lineTo(rx + 15, RULER_TOP - 5);
+        ctx.lineTo(rx, RULER_TOP);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#5c3d2e';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // 标尺标题
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 11px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('宇宙标尺', rx, RULER_TOP - 28);
+    }
+
+    /** 绘制火柴人球员 */
+    function drawPlayer() {
+        const px = PLAYER_X;
+        const py = GROUND_Y;
+
+        ctx.strokeStyle = '#2a1a0a';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // --- 头部（圆形） ---
+        ctx.fillStyle = '#f5e6d3';
+        ctx.beginPath();
+        ctx.arc(px, py - 72, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 眼睛（两个小点）
+        ctx.fillStyle = '#2a1a0a';
+        ctx.beginPath();
+        ctx.arc(px - 5, py - 75, 1.8, 0, Math.PI * 2);
+        ctx.arc(px + 5, py - 75, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 微笑
+        ctx.beginPath();
+        ctx.arc(px, py - 68, 5, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        // --- 身体 ---
+        ctx.beginPath();
+        ctx.moveTo(px, py - 58);
+        ctx.lineTo(px, py - 22);
+        ctx.stroke();
+
+        // --- 腿部 ---
+        ctx.beginPath();
+        ctx.moveTo(px, py - 22);
+        ctx.lineTo(px - 15, py - 2);
+        ctx.moveTo(px, py - 22);
+        ctx.lineTo(px + 12, py - 4);
+        ctx.stroke();
+
+        // --- 手臂 ---
+        // 根据动画状态调整投球手臂角度
+        let armAngle = 0.3; // 默认角度（弧度，从垂直向下算）
+
+        if (isCharging) {
+            // 蓄力时手臂向后摆
+            armAngle = -0.8 - (power / MAX_POWER) * 1.0;
+        } else if (throwAnimTimer > 0) {
+            // 投掷后手臂向前甩
+            armAngle = -1.3 + (1 - throwAnimTimer / 20) * 1.6;
+        }
+
+        const shoulderX = px;
+        const shoulderY = py - 55;
+
+        // 左臂（非投球手，简单垂下）
+        ctx.beginPath();
+        ctx.moveTo(shoulderX, shoulderY);
+        ctx.lineTo(shoulderX - 10, shoulderY + 20);
+        ctx.stroke();
+
+        // 右臂（投球手，随动画摆动）
+        const handX = shoulderX + Math.sin(armAngle) * 28;
+        const handY = shoulderY + Math.cos(armAngle) * 28;
+        ctx.beginPath();
+        ctx.moveTo(shoulderX, shoulderY);
+        ctx.lineTo(handX, handY);
+        ctx.stroke();
+
+        // 如果篮球未激活且在手中，绘制手持篮球
+        if (!ballActive && !isCharging && throwAnimTimer <= 0) {
+            drawBallAt(handX + 4, handY - 2);
+        }
+        // 蓄力时篮球在手中后移
+        if (isCharging) {
+            drawBallAt(handX + 2, handY);
+        }
+    }
+
+    /** 在指定位置绘制篮球 */
+    function drawBallAt(bx, by) {
+        // 篮球主体
+        const ballGrad = ctx.createRadialGradient(bx - 3, by - 3, 2, bx, by, BALL_RADIUS);
+        ballGrad.addColorStop(0, '#f0984b');
+        ballGrad.addColorStop(0.7, '#d46a2c');
+        ballGrad.addColorStop(1, '#9b3a10');
+        ctx.fillStyle = ballGrad;
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 篮球纹理线条
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1.2;
+        // 水平线
+        ctx.beginPath();
+        ctx.moveTo(bx - BALL_RADIUS * 0.85, by);
+        ctx.lineTo(bx + BALL_RADIUS * 0.85, by);
+        ctx.stroke();
+        // 垂直线
+        ctx.beginPath();
+        ctx.moveTo(bx, by - BALL_RADIUS * 0.85);
+        ctx.lineTo(bx, by + BALL_RADIUS * 0.85);
+        ctx.stroke();
+        // 弧线
+        ctx.beginPath();
+        ctx.arc(bx, by, BALL_RADIUS * 0.55, -0.6, 1.8);
+        ctx.stroke();
+    }
+
+    /** 绘制飞行中的篮球（含尾迹） */
+    function drawBallInFlight() {
+        if (!ballActive) return;
+
+        // --- 尾迹粒子 ---
+        ballTrail.forEach(p => {
+            ctx.fillStyle = `rgba(240, 150, 70, ${p.alpha})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, BALL_RADIUS * 0.6 * p.alpha, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // --- 篮球主体 ---
+        drawBallAt(ballX, ballY);
+
+        // --- 到达最高点时的闪光效果 ---
+        const markIdx = getMarkIndexByY(ballPeakY);
+        if (markIdx >= 0 && !throwScored && ballActive && ballVY > 0) {
+            // 球在下落中且未计分，显示即将判定的刻度高亮
+            const markY = SCALE_MARKS[markIdx].y;
+            const dist = Math.abs(ballY - markY);
+            if (dist < 60) {
+                ctx.strokeStyle = `rgba(255, 215, 0, ${1 - dist / 60})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(ballX, ballY, BALL_RADIUS + 8, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+    }
+
+    /** 绘制蓄力指示条 */
+    function drawPowerMeter() {
+        if (!isCharging) return;
+
+        const barX = PLAYER_X - 25;
+        const barY = GROUND_Y - 95;
+        const barW = 18;
+        const barH = 80;
+
+        // 背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(barX, barY, barW, barH, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // 填充量
+        const fillH = (power / MAX_POWER) * (barH - 4);
+        const fillY = barY + barH - 2 - fillH;
+
+        // 颜色随力量变化：绿 → 黄 → 橙 → 红
+        let fillColor;
+        const pct = power / MAX_POWER;
+        if (pct < 0.4) fillColor = `rgb(${Math.floor(pct*2.5*255)}, 200, 60)`;
+        else if (pct < 0.7) fillColor = `rgb(255, ${Math.floor(200 - (pct-0.4)*3.3*150)}, 50)`;
+        else fillColor = `rgb(255, ${Math.floor(60 - (pct-0.7)*3.3*60)}, 30)`;
+
+        ctx.fillStyle = fillColor;
+        ctx.beginPath();
+        ctx.roundRect(barX + 2, fillY, barW - 4, fillH, 2);
+        ctx.fill();
+
+        // 文字标签
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 10px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('力量', barX + barW / 2, barY - 6);
+        ctx.fillText(Math.floor(power) + '%', barX + barW / 2, barY + barH + 16);
+    }
+
+    /** 绘制得分弹出 */
+    function drawScorePopup() {
+        if (!scorePopup) return;
+        const sp = scorePopup;
+        ctx.fillStyle = `rgba(255, 215, 0, ${sp.alpha})`;
+        ctx.font = 'bold 22px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(sp.text, sp.x, sp.y);
+
+        // 如果有连击，再画一行
+        if (comboCount > 1) {
+            ctx.fillStyle = `rgba(255, 120, 40, ${sp.alpha})`;
+            ctx.font = 'bold 15px "PingFang SC", "Microsoft YaHei", sans-serif';
+            ctx.fillText(`${comboCount}连击! ×${(1 + comboCount * 0.5).toFixed(1)}`, sp.x, sp.y + 22);
+        }
+    }
+
+    /** 绘制庆祝粒子 */
+    function drawParticles() {
+        particles.forEach(p => {
+            ctx.fillStyle = `rgba(${p.r}, ${p.g}, ${p.b}, ${p.alpha})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    /** 绘制 HUD 信息（分数、剩余次数等） */
+    function drawHUD() {
+        // 左上角分数面板
+        const panelX = 20, panelY = 20;
+
+        // 半透明背景
+        ctx.fillStyle = 'rgba(255, 248, 235, 0.85)';
+        ctx.strokeStyle = 'rgba(92, 61, 46, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, 170, 90, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // 分数
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 13px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('🏀 得分', panelX + 12, panelY + 24);
+        ctx.font = 'bold 24px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(score.toString(), panelX + 12, panelY + 54);
+
+        // 最高分
+        ctx.fillStyle = '#8b7355';
+        ctx.font = '11px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(`最高: ${highScore}`, panelX + 12, panelY + 75);
+
+        // 右上角剩余次数
+        const rpX = W - 160, rpY = 20;
+        ctx.fillStyle = 'rgba(255, 248, 235, 0.85)';
+        ctx.strokeStyle = 'rgba(92, 61, 46, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(rpX, rpY, 140, 55, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 12px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('剩余投篮', rpX + 10, rpY + 22);
+
+        // 用篮球图标表示剩余次数
+        const iconsPerRow = 5;
+        for (let i = 0; i < attemptsLeft; i++) {
+            const ix = rpX + 14 + (i % iconsPerRow) * 22;
+            const iy = rpY + 34 + Math.floor(i / iconsPerRow) * 16;
+            ctx.fillStyle = '#d46a2c';
+            ctx.beginPath();
+            ctx.arc(ix, iy, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+        }
+
+        // 连击显示
+        if (comboCount > 1) {
+            const comboX = W / 2;
+            const comboY = 40;
+            ctx.fillStyle = `rgba(255, 120, 30, ${0.7 + Math.sin(frameCount * 0.1) * 0.3})`;
+            ctx.font = 'bold 16px "PingFang SC", "Microsoft YaHei", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`🔥 ${comboCount} 连击!`, comboX, comboY);
+        }
+    }
+
+    /** 绘制开始界面 */
+    function drawStartScreen() {
+        // 半透明遮罩
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+        ctx.fillRect(0, 0, W, H);
+
+        // 标题卡片
+        const cx = W / 2, cy = H / 2 - 30;
+        ctx.fillStyle = 'rgba(255, 248, 235, 0.95)';
+        ctx.strokeStyle = '#5c3d2e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(cx - 250, cy - 170, 500, 340, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        // 标题
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 32px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🌌 宇宙标尺投篮挑战 🏀', cx, cy - 110);
+
+        // 副标题
+        ctx.fillStyle = '#8b7355';
+        ctx.font = '15px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText('你能把篮球投到多高的刻度？', cx, cy - 75);
+
+        // 说明文字
+        const instructions = [
+            '🎯 按住鼠标左键 或 空格键 开始蓄力',
+            '💪 观察力量条，松手投出篮球',
+            '📏 篮球飞过标尺塔，达到的刻度越高得分越多',
+            '🔥 连续超越更高刻度可获得连击加分',
+            '❌ 未达到最低刻度(25m)算失误',
+            `💀 连续 ${MAX_CONSECUTIVE_MISS} 次失误 或 用完全部 ${TOTAL_ATTEMPTS} 次投篮 = 游戏结束`
+        ];
+
+        ctx.fillStyle = '#4a3a2a';
+        ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
+        instructions.forEach((text, i) => {
+            ctx.fillText(text, cx, cy - 30 + i * 28);
+        });
+
+        // 最高分提示
+        if (highScore > 0) {
+            ctx.fillStyle = '#c0392b';
+            ctx.font = 'bold 14px "PingFang SC", "Microsoft YaHei", sans-serif';
+            ctx.fillText(`🏆 历史最高分: ${highScore}`, cx, cy + 142);
+        }
+
+        // "点击开始" 按钮（带脉冲动画）
+        const pulse = Math.sin(frameCount * 0.05) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(220, 100, 40, ${pulse})`;
+        ctx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText('👆 点击屏幕开始游戏', cx, cy + 160);
+    }
+
+    /** 绘制游戏结束界面 */
+    function drawGameOverScreen() {
+        // 半透明遮罩
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, W, H);
+
+        const cx = W / 2, cy = H / 2 - 20;
+
+        ctx.fillStyle = 'rgba(255, 248, 235, 0.95)';
+        ctx.strokeStyle = '#5c3d2e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(cx - 220, cy - 140, 440, 290, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        // Game Over 标题
+        ctx.fillStyle = '#c0392b';
+        ctx.font = 'bold 30px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('游戏结束', cx, cy - 85);
+
+        // 最终分数
+        ctx.fillStyle = '#2a1a0a';
+        ctx.font = 'bold 18px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(`最终得分: ${score}`, cx, cy - 45);
+
+        // 是否打破纪录
+        if (score >= highScore && score > 0) {
+            ctx.fillStyle = '#e67e22';
+            ctx.font = 'bold 16px "PingFang SC", "Microsoft YaHei", sans-serif';
+            ctx.fillText('🎉 新纪录! 🎉', cx, cy - 15);
+        }
+
+        // 最高分
+        ctx.fillStyle = '#8b7355';
+        ctx.font = '13px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText(`历史最高: ${highScore}`, cx, cy + 15);
+
+        // 统计
+        const usedAttempts = TOTAL_ATTEMPTS - attemptsLeft;
+        ctx.fillText(`共同投篮 ${usedAttempts} 次 | 最高连击 ${maxComboThisRound} 连击`, cx, cy + 40);
+
+        // 重新开始按钮
+        const pulse = Math.sin(frameCount * 0.05) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(220, 100, 40, ${pulse})`;
+        ctx.font = 'bold 19px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.fillText('👆 点击屏幕重新开始', cx, cy + 85);
+    }
+
+    /* =================================================================
+     *  游戏逻辑
+     * ================================================================= */
+
+    /** 开始投掷篮球 */
+    function throwBall() {
+        if (ballActive || gameState !== STATE.PLAYING) return;
+        if (attemptsLeft <= 0) return;
+
+        // 根据蓄力值计算初速度
+        // vy: 垂直速度（屏幕坐标，负=向上），范围约 2 ~ 22
+        const vy = 2.5 + (power / MAX_POWER) * 19.5;
+        // vx: 水平速度，范围 3 ~ 7（力量越大飞得越远越快）
+        const vx = 3.5 + (power / MAX_POWER) * 3.5;
+
+        // 初始化篮球物理状态
+        ballActive = true;
+        ballX = BALL_START_X;
+        ballY = BALL_START_Y;
+        ballVX = vx;
+        ballVY = -vy;          // 负号表示向上
+        ballTrail = [];
+        ballPeakY = BALL_START_Y;
+        throwScored = false;
+
+        // 投掷动画
+        throwAnimTimer = 20;
+
+        // 消耗一次投篮机会
+        attemptsLeft--;
+    }
+
+    /** 更新篮球物理（每帧调用） */
+    function updateBallPhysics() {
+        if (!ballActive) return;
+
+        // 记录上一帧位置（用于尾迹）
+        const prevX = ballX;
+        const prevY = ballY;
+
+        // 更新速度（重力影响 vy，屏幕坐标中向下为正）
+        ballVY += GRAVITY;
+
+        // 更新位置
+        ballX += ballVX;
+        ballY += ballVY;
+
+        // 跟踪最高点（屏幕坐标中 y 值最小 = 最高）
+        if (ballY < ballPeakY) {
+            ballPeakY = ballY;
+        }
+
+        // 生成尾迹粒子
+        if (frameCount % 2 === 0) {
+            ballTrail.push({
+                x: ballX + rand(-3, 3),
+                y: ballY + rand(-3, 3),
+                alpha: 0.8
+            });
+        }
+
+        // 更新尾迹（衰减）
+        ballTrail.forEach(p => { p.alpha -= 0.04; });
+        ballTrail = ballTrail.filter(p => p.alpha > 0);
+
+        // --- 判断篮球是否落地 ---
+        if (ballY >= GROUND_Y - BALL_RADIUS) {
+            ballY = GROUND_Y - BALL_RADIUS;
+            settleBall();
+            return;
+        }
+
+        // --- 判断篮球是否飞出屏幕 ---
+        if (ballY < -100 || ballX > W + 100 || ballX < -100) {
+            // 球飞出屏幕顶部，按最高刻度计分
+            settleBall();
+            return;
+        }
+    }
+
+    /** 篮球落地或出界，结算本次投掷 */
+    function settleBall() {
+        ballActive = false;
+
+        // 确定篮球达到的最高刻度
+        const markIndex = getMarkIndexByY(ballPeakY);
+
+        if (markIndex < 0) {
+            // ---- 失误：未达到任何刻度 ----
+            consecutiveMisses++;
+            comboCount = 0;
+
+            // 失误提示弹出
+            scorePopup = {
+                text: '未命中!',
+                x: RULER_X,
+                y: GROUND_Y - 30,
+                alpha: 1.0,
+                vy: -1.5
+            };
+
+            // 屏幕微震
+            screenShake = 4;
+
+            // 检查是否连续失误过多
+            if (consecutiveMisses >= MAX_CONSECUTIVE_MISS) {
+                endGame();
+            }
+        } else {
+            // ---- 命中！计算得分 ----
+            consecutiveMisses = 0;
+            const mark = SCALE_MARKS[markIndex];
+
+            // 判断是否超越了上次的刻度
+            if (markIndex > lastMarkIndex) {
+                comboCount++;
+                if (comboCount > maxComboThisRound) maxComboThisRound = comboCount;
+                lastMarkIndex = markIndex;
+            } else if (markIndex < lastMarkIndex) {
+                // 低于上次，重置连击但不失分
+                comboCount = 1;
+                lastMarkIndex = markIndex;
+            } else {
+                // 持平上次
+                // combo 保持不变
+            }
+
+            // 计算得分 = 基础分 × 连击倍率
+            const comboMultiplier = 1 + (comboCount - 1) * 0.5;
+            const earnedPoints = Math.floor(mark.points * comboMultiplier);
+            score += earnedPoints;
+
+            // 特效：得分弹出
+            let popText = `+${earnedPoints}`;
+            if (comboCount > 1) {
+                popText += ` x${comboMultiplier.toFixed(1)}`;
+            }
+            scorePopup = {
+                text: popText,
+                x: RULER_X,
+                y: mark.y,
+                alpha: 1.0,
+                vy: -2.5
+            };
+
+            // 高刻度特殊粒子效果
+            if (markIndex >= 7) {
+                spawnParticles(RULER_X, mark.y, markIndex >= 8 ? 30 : 20);
+                screenShake = markIndex >= 9 ? 10 : 5;
+            } else if (markIndex >= 5) {
+                spawnParticles(RULER_X, mark.y, 8);
+            }
+        }
+
+        // 检查是否用完全部次数
+        if (attemptsLeft <= 0) {
+            // 延迟结束，让玩家看到最后一次的结果
+            setTimeout(() => {
+                if (gameState === STATE.PLAYING) endGame();
+            }, 800);
+        } else if (consecutiveMisses >= MAX_CONSECUTIVE_MISS) {
+            setTimeout(() => {
+                if (gameState === STATE.PLAYING) endGame();
+            }, 800);
+        }
+
+        throwScored = true;
+    }
+
+    /** 生成庆祝粒子 */
+    function spawnParticles(cx, cy, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = rand(0, Math.PI * 2);
+            const speed = rand(1, 5);
+            particles.push({
+                x: cx,
+                y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                alpha: 1.0,
+                size: rand(2, 5),
+                r: Math.floor(rand(200, 255)),
+                g: Math.floor(rand(100, 220)),
+                b: Math.floor(rand(30, 100)),
+                life: rand(25, 45)
+            });
+        }
+    }
+
+    /** 更新粒子 */
+    function updateParticles() {
+        particles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.08;  // 粒子也受微重力
+            p.alpha = p.life > 0 ? p.life / 45 : 0;
+            p.life--;
+        });
+        particles = particles.filter(p => p.life > 0);
+    }
+
+    /** 更新得分弹出 */
+    function updateScorePopup() {
+        if (!scorePopup) return;
+        scorePopup.y += scorePopup.vy;
+        scorePopup.alpha -= 0.025;
+        if (scorePopup.alpha <= 0) {
+            scorePopup = null;
+        }
+    }
+
+    /** 结束游戏 */
+    function endGame() {
+        gameState = STATE.GAMEOVER;
+        ballActive = false;
+        isCharging = false;
+        power = 0;
+
+        // 更新最高分
+        if (score > highScore) {
+            highScore = score;
+            try {
+                localStorage.setItem('cosmicBasketballHighScore', highScore.toString());
+            } catch (e) { /* 忽略 */ }
+        }
+
+        hintEl.style.opacity = '0';
+    }
+
+    /** 重置游戏 */
+    function resetGame() {
+        score = 0;
+        comboCount = 0;
+        maxComboThisRound = 0;
+        attemptsLeft = TOTAL_ATTEMPTS;
+        consecutiveMisses = 0;
+        lastMarkIndex = -1;
+        ballActive = false;
+        isCharging = false;
+        power = 0;
+        ballX = BALL_START_X;
+        ballY = BALL_START_Y;
+        ballVX = 0;
+        ballVY = 0;
+        ballTrail = [];
+        ballPeakY = BALL_START_Y;
+        throwScored = false;
+        scorePopup = null;
+        particles = [];
+        screenShake = 0;
+        throwAnimTimer = 0;
+        gameState = STATE.PLAYING;
+        hintEl.style.opacity = '1';
+    }
+
+    /* =================================================================
+     *  输入处理
+     * ================================================================= */
+
+    /** 开始蓄力 */
+    function startCharge() {
+        if (gameState === STATE.START) {
+            resetGame();
+            return;
+        }
+        if (gameState === STATE.GAMEOVER) {
+            resetGame();
+            return;
+        }
+        if (gameState === STATE.PLAYING && !ballActive && attemptsLeft > 0) {
+            isCharging = true;
+            power = 0;
+        }
+    }
+
+    /** 结束蓄力并投掷 */
+    function endCharge() {
+        if (isCharging && gameState === STATE.PLAYING && !ballActive) {
+            throwBall();
+        }
+        isCharging = false;
+        power = 0;
+    }
+
+    // --- 鼠标事件 ---
+    canvas.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startCharge();
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        endCharge();
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        // 鼠标离开画布时取消蓄力（但不投掷）
+        if (isCharging) {
+            endCharge();
+        }
+    });
+
+    // --- 触摸事件（移动端支持） ---
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startCharge();
+    });
+
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        endCharge();
+    });
+
+    canvas.addEventListener('touchcancel', () => {
+        if (isCharging) endCharge();
+    });
+
+    // --- 键盘事件 ---
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'KeyJ') {
+            e.preventDefault();
+            if (!isCharging) startCharge();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space' || e.code === 'KeyJ') {
+            e.preventDefault();
+            if (isCharging) endCharge();
+        }
+    });
+
+    /* =================================================================
+     *  主游戏循环
+     * ================================================================= */
+
+    function update() {
+        frameCount++;
+
+        // 蓄力更新
+        if (isCharging && gameState === STATE.PLAYING) {
+            power = Math.min(MAX_POWER, power + POWER_CHARGE_RATE);
+
+            // 如果蓄力到满，自动投掷
+            if (power >= MAX_POWER) {
+                throwBall();
+                isCharging = false;
+                power = 0;
+            }
+        }
+
+        // 投掷后动画计时器
+        if (throwAnimTimer > 0) {
+            throwAnimTimer--;
+        }
+
+        // 物理更新
+        updateBallPhysics();
+
+        // 特效更新
+        updateScorePopup();
+        updateParticles();
+
+        // 屏幕震动衰减
+        if (screenShake > 0) {
+            screenShake *= 0.85;
+            if (screenShake < 0.1) screenShake = 0;
+        }
+
+        // 更新提示文字透明度
+        if (gameState === STATE.PLAYING && !ballActive && !isCharging && attemptsLeft > 0) {
+            hintEl.style.opacity = '1';
+        } else if (ballActive || isCharging) {
+            hintEl.style.opacity = '0.3';
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        // 屏幕震动偏移
+        let shakeX = 0, shakeY = 0;
+        if (screenShake > 0) {
+            shakeX = (Math.random() - 0.5) * screenShake * 2;
+            shakeY = (Math.random() - 0.5) * screenShake * 2;
+        }
+
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+
+        // 1. 背景
+        drawBackground();
+
+        // 2. 装饰（太阳、云朵、星星）
+        drawSun();
+        drawClouds();
+        drawStars();
+
+        // 3. 标尺塔
+        drawRuler();
+
+        // 4. 火柴人
+        drawPlayer();
+
+        // 5. 飞行中的篮球及尾迹
+        drawBallInFlight();
+
+        // 6. 蓄力指示条
+        drawPowerMeter();
+
+        // 7. HUD
+        drawHUD();
+
+        // 8. 得分弹出
+        drawScorePopup();
+
+        // 9. 粒子
+        drawParticles();
+
+        ctx.restore();
+
+        // 10. 覆盖层（开始/结束画面，不受震动影响）
+        if (gameState === STATE.START) {
+            drawStartScreen();
+        } else if (gameState === STATE.GAMEOVER) {
+            drawGameOverScreen();
+        }
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    /* =================================================================
+     *  自适应缩放
+     * ================================================================= */
+    function resizeCanvas() {
+        const maxWidth = Math.min(window.innerWidth - 20, 900);
+        const maxHeight = Math.min(window.innerHeight - 20, 650);
+        const scale = Math.min(maxWidth / W, maxHeight / H);
+        wrapper.style.width = (W * scale) + 'px';
+        wrapper.style.height = (H * scale) + 'px';
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ---------- 启动游戏 ----------
+    gameLoop();
+    console.log('🏀 宇宙标尺投篮挑战 - 准备就绪！');
+    console.log('   按住鼠标/空格键蓄力，松手投出篮球');
+    console.log('   标尺刻度: 25m → 60m → 75m → 110m → 400m → 800m → 1000m → 8000m → 10⁹m → 10¹⁰m');
+
+})();
+</script>
+</body>
+</html>

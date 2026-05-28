@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YYZ 游戏合集</title>
+<style>
+    /* ============================================================
+       YYZ 游戏合集 - 入口页面 (Hub + iframe 游戏容器)
+       所有子游戏通过 iframe 嵌入，返回按钮统一由此页提供，
+       子游戏无需任何修改。
+       ============================================================ */
+
+    /* ---------- 基础重置 ---------- */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        background: #2c2416;
+        background-image: radial-gradient(ellipse at 50% 30%, #3a3020 0%, #1a1510 100%);
+        min-height: 100vh;
+        font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+        color: #3a2a1a;
+    }
+
+    /* ============================================================
+       布局容器
+       ============================================================ */
+
+    /* --- 合集首页视图 --- */
+    #hubView {
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px 60px;
+        min-height: 100vh;
+    }
+
+    .hub-container {
+        width: 100%;
+        max-width: 960px;
+    }
+
+    /* --- 游戏运行视图 (iframe) --- */
+    #gameView {
+        display: none;                    /* 默认隐藏 */
+        position: fixed;
+        inset: 0;
+        background: #1a1510;
+        flex-direction: column;
+    }
+
+    #gameView.active {
+        display: flex;
+    }
+
+    /* ============================================================
+       页头
+       ============================================================ */
+    .header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .header-badge {
+        display: inline-block;
+        background: rgba(255, 248, 235, 0.9);
+        border: 3px solid #5c3d2e;
+        border-radius: 40px;
+        padding: 8px 28px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #8b6914;
+        letter-spacing: 2px;
+    }
+
+    .header h1 {
+        font-size: 42px;
+        font-weight: 900;
+        color: #f5e6d3;
+        text-shadow: 0 2px 0 #5c3d2e, 0 4px 12px rgba(0,0,0,0.3);
+        margin-bottom: 8px;
+        letter-spacing: 2px;
+    }
+
+    .header .subtitle {
+        font-size: 16px;
+        color: rgba(255, 248, 235, 0.55);
+        letter-spacing: 1px;
+    }
+
+    .header-divider {
+        width: 120px;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #c0843c, transparent);
+        margin: 20px auto 0;
+        border-radius: 2px;
+    }
+
+    /* ============================================================
+       游戏卡片网格
+       ============================================================ */
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+        gap: 28px;
+    }
+
+    .game-card {
+        background: rgba(255, 248, 235, 0.92);
+        border: 3px solid #5c3d2e;
+        border-radius: 20px;
+        overflow: hidden;
+        transition: transform 0.25s, box-shadow 0.25s;
+        cursor: pointer;
+    }
+
+    .game-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 2px rgba(220,140,60,0.3);
+    }
+
+    .game-card:active { transform: translateY(-2px); }
+
+    .card-preview {
+        height: 160px;
+        background: #faf3e6;
+        border-bottom: 2px dashed rgba(92, 61, 46, 0.25);
+        overflow: hidden;
+    }
+    .card-preview canvas { display: block; width: 100%; height: 100%; }
+
+    .card-body { padding: 18px 20px 20px; }
+
+    .card-body .tags {
+        display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+
+    .card-body .tag {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: rgba(220, 140, 60, 0.12);
+        color: #a06828;
+        border: 1px solid rgba(220, 140, 60, 0.25);
+        letter-spacing: 0.5px;
+    }
+
+    .card-body h3 {
+        font-size: 19px; font-weight: 800; color: #2a1a0a; margin-bottom: 6px;
+    }
+
+    .card-body .desc {
+        font-size: 13px; color: #6b5a4a; line-height: 1.6; margin-bottom: 14px;
+    }
+
+    .play-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 22px;
+        background: #d46a2c; color: #fff;
+        border: none; border-radius: 20px;
+        font-size: 14px; font-weight: 700; cursor: pointer;
+        transition: background 0.2s, transform 0.15s;
+        letter-spacing: 0.5px;
+    }
+    .play-btn:hover { background: #c05920; transform: scale(1.04); }
+    .play-btn:active { transform: scale(0.96); }
+
+    /* --- 即将推出 --- */
+    .game-card.coming-soon {
+        opacity: 0.55; cursor: default; border-style: dashed;
+    }
+    .game-card.coming-soon:hover { transform: none; box-shadow: none; }
+    .coming-soon .card-preview {
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(200, 190, 170, 0.3);
+        border-bottom: 2px dashed rgba(92, 61, 46, 0.15);
+    }
+    .coming-soon-text { font-size: 16px; color: #a09080; letter-spacing: 2px; }
+
+    /* ============================================================
+       游戏视图 —— 顶栏 (返回按钮)
+       ============================================================ */
+    #gameTopBar {
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 16px;
+        background: #2c2416;
+        border-bottom: 2px solid #5c3d2e;
+        flex-shrink: 0;
+    }
+
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        background: rgba(255, 248, 235, 0.12);
+        color: rgba(255, 248, 235, 0.85);
+        border: 2px solid rgba(255, 248, 235, 0.2);
+        border-radius: 18px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.5px;
+        font-family: inherit;
+    }
+
+    .back-btn:hover {
+        background: rgba(255, 248, 235, 0.22);
+        border-color: rgba(255, 248, 235, 0.4);
+        color: #fff;
+    }
+
+    .back-btn .arrow {
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    /* 游戏标题（顶栏中间） */
+    #gameTopBar .game-title-in-bar {
+        flex: 1;
+        text-align: center;
+        color: rgba(255, 248, 235, 0.5);
+        font-size: 13px;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+    }
+
+    /* --- iframe 容器 --- */
+    #gameFrame {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: #1a1510;
+    }
+
+    /* ============================================================
+       页脚
+       ============================================================ */
+    .footer {
+        text-align: center;
+        margin-top: 50px;
+        color: rgba(255, 248, 235, 0.3);
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+
+    /* ============================================================
+       响应式
+       ============================================================ */
+    @media (max-width: 640px) {
+        #hubView { padding: 20px 12px 40px; }
+        .header h1 { font-size: 28px; }
+        .games-grid { grid-template-columns: 1fr; gap: 18px; }
+        .card-preview { height: 130px; }
+        #gameTopBar { height: 42px; padding: 0 10px; }
+        .back-btn { font-size: 12px; padding: 5px 12px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- ==================================================================
+     Hub 视图：游戏合集首页
+     ================================================================== -->
+<div id="hubView">
+    <div class="hub-container">
+
+        <header class="header">
+            <div class="header-badge">🎮 MINI GAMES</div>
+            <h1>YYZ 游戏合集</h1>
+            <p class="subtitle">手绘风格 · 纯 Web 实现 · 持续更新中</p>
+            <div class="header-divider"></div>
+        </header>
+
+        <div class="games-grid" id="gamesGrid"></div>
+
+        <footer class="footer">
+            <p>在浏览器中打开即玩 · 支持鼠标 / 键盘 / 触屏</p>
+        </footer>
+
+    </div>
+</div>
+
+<!-- ==================================================================
+     Game 视图：iframe 游戏容器 (默认隐藏)
+     ================================================================== -->
+<div id="gameView">
+    <div id="gameTopBar">
+        <button class="back-btn" id="backBtn" title="返回游戏列表 (Esc)">
+            <span class="arrow">←</span> 返回合集
+        </button>
+        <span class="game-title-in-bar" id="gameTitleInBar"></span>
+    </div>
+    <iframe id="gameFrame" src="" title="游戏画面"></iframe>
+</div>
+
+<script>
+(function() {
+    /* ============================================================
+     *  游戏注册表 —— 添加新游戏只需在此数组中新增一项
+     *  {
+     *    id:          唯一标识 (也用作 URL hash)
+     *    title:       游戏名称
+     *    description: 简短描述
+     *    tags:        标签数组
+     *    file:        HTML 文件名
+     *    drawPreview: 绘制预览图函数 (ctx, w, h)
+     *    comingSoon:  (可选) true = 即将推出
+     *  }
+     * ============================================================ */
+    const games = [
+        {
+            id: 'cosmic-basketball',
+            title: '宇宙标尺投篮挑战',
+            description: '按住蓄力、松手投出篮球。抛物线飞越从 25m 到 10¹⁰m 的宇宙标尺塔，连续超越更高刻度触发连击加分。物理模拟 + 手绘风格。',
+            tags: ['物理', '投篮', '休闲', '计分'],
+            file: 'cosmic_basketball.html',
+            drawPreview: function(ctx, w, h) {
+                // 天空渐变
+                const sky = ctx.createLinearGradient(0, 0, 0, h);
+                sky.addColorStop(0, '#b8d4e3');
+                sky.addColorStop(0.5, '#f0e8d8');
+                sky.addColorStop(1, '#e8dcc8');
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, w, h);
+
+                // 地面
+                ctx.fillStyle = '#c4a882';
+                ctx.fillRect(0, h * 0.82, w, h * 0.18);
+
+                // 草地线
+                ctx.strokeStyle = '#8b9a6b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, h * 0.82);
+                for (let x = 0; x < w; x += 10) {
+                    ctx.lineTo(x + 5, h * 0.82 - 2 - Math.random() * 3);
+                    ctx.lineTo(x + 10, h * 0.82);
+                }
+                ctx.stroke();
+
+                // 太阳
+                const sx = w * 0.85, sy = h * 0.18, sr = 18;
+                ctx.fillStyle = '#f9d170';
+                ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#f9d170'; ctx.lineWidth = 1.2;
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(sx + Math.cos(a) * sr * 0.8, sy + Math.sin(a) * sr * 0.8);
+                    ctx.lineTo(sx + Math.cos(a) * (sr + 6 + Math.random() * 10), sy + Math.sin(a) * (sr + 6 + Math.random() * 10));
+                    ctx.stroke();
+                }
+
+                // 云朵
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                [[w*0.15, h*0.2, 1], [w*0.7, h*0.35, 0.6]].forEach(([cx, cy, s]) => {
+                    [[cx, cy, 10*s], [cx+8*s, cy-4*s, 7*s],
+                     [cx-7*s, cy+1*s, 6*s], [cx+14*s, cy+2*s, 5*s]]
+                    .forEach(([px, py, pr]) => {
+                        ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill();
+                    });
+                });
+
+                // 标尺塔
+                const rx = w * 0.62, rTop = h * 0.12, rBot = h * 0.80;
+                ctx.strokeStyle = '#5c3d2e'; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.moveTo(rx, rTop); ctx.lineTo(rx, rBot); ctx.stroke();
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(rx, rBot); ctx.lineTo(rx - 14, h * 0.82);
+                ctx.moveTo(rx, rBot); ctx.lineTo(rx + 14, h * 0.82);
+                ctx.stroke();
+
+                // 刻度
+                [
+                    [h*0.76, '25m'], [h*0.62, '110m'], [h*0.48, '400m'],
+                    [h*0.34, '1000m'], [h*0.20, '8000m'], [h*0.12, '10¹⁰m']
+                ].forEach(([my, label]) => {
+                    ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 1.2;
+                    ctx.beginPath(); ctx.moveTo(rx - 5, my); ctx.lineTo(rx + 5, my); ctx.stroke();
+                    ctx.fillStyle = '#c0392b';
+                    ctx.beginPath(); ctx.arc(rx, my, 2, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#3a2a1a';
+                    ctx.font = 'bold 8px "PingFang SC", "Microsoft YaHei", sans-serif';
+                    ctx.textAlign = 'left'; ctx.fillText(label, rx + 7, my + 3);
+                });
+
+                // 火柴人
+                const px = w * 0.2, py = h * 0.80;
+                ctx.strokeStyle = '#2a1a0a'; ctx.lineWidth = 1.5;
+                ctx.fillStyle = '#f5e6d3';
+                ctx.beginPath(); ctx.arc(px, py - 32, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py - 25); ctx.lineTo(px, py - 8); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py - 8); ctx.lineTo(px - 8, py);
+                ctx.moveTo(px, py - 8); ctx.lineTo(px + 7, py - 1); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py - 22); ctx.lineTo(px + 14, py - 14); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py - 22); ctx.lineTo(px - 6, py - 8); ctx.stroke();
+
+                // 篮球 + 轨迹
+                const bx = w * 0.40, by = h * 0.48;
+                ctx.strokeStyle = 'rgba(200, 120, 60, 0.4)'; ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(px + 14, py - 14);
+                ctx.quadraticCurveTo(w * 0.42, h * 0.15, rx, h * 0.34);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                const ball = ctx.createRadialGradient(bx-2, by-2, 1, bx, by, 7);
+                ball.addColorStop(0, '#f0984b'); ball.addColorStop(0.7, '#d46a2c'); ball.addColorStop(1, '#9b3a10');
+                ctx.fillStyle = ball;
+                ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.6;
+                ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.stroke();
+            }
+        },
+        {
+            id: 'pachinko-duel',
+            title: '双人弹珠迷宫对决',
+            description: '双人轮流发射弹珠，弹珠穿越锯齿迷宫随机反弹，落入 1~5 分计分洞。物理引擎驱动，碰撞音效 + 金色闪光特效。8 回合后总分高者获胜。',
+            tags: ['双人', '物理', '迷宫', '弹珠'],
+            file: 'pachinko_duel.html',
+            drawPreview: function(ctx, w, h) {
+                // 纸张背景
+                ctx.fillStyle = '#fffef7';
+                ctx.fillRect(0, 0, w, h);
+
+                // 迷宫边框
+                ctx.strokeStyle = '#2a1a0a';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(3, 3, w - 6, h - 6);
+
+                // 锯齿挡板
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#2a1a0a';
+                const baffles = [
+                    [w*0.35, h*0.18, w*0.25, -25],
+                    [w*0.65, h*0.28, w*0.22, 20],
+                    [w*0.30, h*0.38, w*0.28, -30],
+                    [w*0.68, h*0.50, w*0.20, 25],
+                    [w*0.32, h*0.60, w*0.26, -22],
+                    [w*0.64, h*0.70, w*0.22, 18],
+                ];
+                baffles.forEach(([cx, cy, bw, ang]) => {
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(ang * Math.PI / 180);
+                    ctx.fillStyle = '#fef3c7';
+                    ctx.fillRect(-bw/2, -4, bw, 10);
+                    ctx.strokeRect(-bw/2, -4, bw, 10);
+                    ctx.restore();
+                });
+
+                // 木钉
+                [
+                    [w*0.45, h*0.22], [w*0.55, h*0.35],
+                    [w*0.40, h*0.48], [w*0.60, h*0.58], [w*0.45, h*0.68]
+                ].forEach(([px, py]) => {
+                    ctx.fillStyle = '#2a1a0a';
+                    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI*2); ctx.fill();
+                });
+
+                // 计分洞
+                const slotLabels = ['1', '2', '3', '4', '5'];
+                const slotColors = ['#dbeafe', '#d1fae5', '#fef3c7', '#fed7aa', '#fef08a'];
+                const sw = w / 5;
+                slotLabels.forEach((label, i) => {
+                    ctx.fillStyle = slotColors[i];
+                    ctx.strokeStyle = '#2a1a0a';
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(i * sw + 2, h * 0.83, sw - 4, h * 0.15);
+                    ctx.strokeRect(i * sw + 2, h * 0.83, sw - 4, h * 0.15);
+                    ctx.fillStyle = '#2a1a0a';
+                    ctx.font = 'bold 14px "PingFang SC","Microsoft YaHei",sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(label + '分', i * sw + sw/2, h * 0.94);
+                });
+
+                // 弹珠
+                const bx1 = w * 0.35, by1 = h * 0.52;
+                const g1 = ctx.createRadialGradient(bx1-2, by1-2, 1, bx1, by1, 8);
+                g1.addColorStop(0, '#93c5fd'); g1.addColorStop(1, '#1d4ed8');
+                ctx.fillStyle = g1;
+                ctx.beginPath(); ctx.arc(bx1, by1, 8, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#2a1a0a'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(bx1, by1, 8, 0, Math.PI*2); ctx.stroke();
+
+                const bx2 = w * 0.55, by2 = h * 0.42;
+                const g2 = ctx.createRadialGradient(bx2-2, by2-2, 1, bx2, by2, 8);
+                g2.addColorStop(0, '#fca5a5'); g2.addColorStop(1, '#b91c1c');
+                ctx.fillStyle = g2;
+                ctx.beginPath(); ctx.arc(bx2, by2, 8, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#2a1a0a'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(bx2, by2, 8, 0, Math.PI*2); ctx.stroke();
+
+                // 发射口
+                ctx.fillStyle = '#fef3c7';
+                ctx.strokeStyle = '#2a1a0a';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(w*0.4, h*0.03);
+                ctx.lineTo(w*0.35, h*0.10);
+                ctx.lineTo(w*0.65, h*0.10);
+                ctx.lineTo(w*0.6, h*0.03);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#2a1a0a';
+                ctx.font = 'bold 10px "PingFang SC","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('发射口', w*0.5, h*0.07);
+            }
+        },
+        {
+            id: 'chengyu-jielong',
+            title: '成语接龙 · 亲子版',
+            description: '亲子互动成语接龙，孩子和家长轮流对战。首尾字音匹配，趣味计分 + 连胜机制，寓教于乐。',
+            tags: ['文字', '成语', '亲子', '益智'],
+            file: 'chengyujielong/index.html',
+            drawPreview: function(ctx, w, h) {
+                ctx.fillStyle = '#FFF8EC';
+                ctx.fillRect(0, 0, w, h);
+
+                const idioms = ['一心一意', '意气风发', '发奋图强', '强身健体'];
+                const cardColors = ['#E3F2FD', '#FFF3E0', '#E8F5E9', '#F3E5F5'];
+                idioms.forEach((idiom, i) => {
+                    const x = 30 + i * 130, y = 40 + (i % 2) * 105;
+                    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+                    ctx.beginPath(); ctx.roundRect(x + 3, y + 3, 115, 58, 12); ctx.fill();
+                    ctx.fillStyle = cardColors[i];
+                    ctx.beginPath(); ctx.roundRect(x, y, 115, 58, 12); ctx.fill();
+                    ctx.strokeStyle = '#8D6E63'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.fillStyle = '#3E2723';
+                    ctx.font = 'bold 22px "PingFang SC", "Microsoft YaHei", sans-serif';
+                    ctx.textAlign = 'center'; ctx.fillText(idiom, x + 57, y + 38);
+                    if (i > 0) {
+                        const px = 30 + (i - 1) * 130 + 115, py = 40 + ((i - 1) % 2) * 105 + 29;
+                        const cx = x, cy = y + 29;
+                        ctx.strokeStyle = '#FF9800'; ctx.lineWidth = 2;
+                        ctx.setLineDash([4, 3]); ctx.beginPath();
+                        ctx.moveTo(px, py);
+                        ctx.bezierCurveTo(px + 18, py, cx - 18, cy, cx, cy); ctx.stroke();
+                        ctx.setLineDash([]);
+                        ctx.fillStyle = '#FF9800';
+                        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+                    }
+                });
+                ctx.fillStyle = '#FF6D00';
+                ctx.font = 'bold 13px "PingFang SC","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'right'; ctx.fillText('👶', 200, 32);
+                ctx.fillStyle = '#2979FF';
+                ctx.textAlign = 'left'; ctx.fillText('👨', 350, 252);
+                ctx.fillStyle = '#4CAF50';
+                ctx.font = '13px "PingFang SC","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'center'; ctx.fillText('🏆 连胜 x3', w / 2, h - 15);
+            }
+        },
+        {
+            id: 'motion-runner',
+            title: 'Motion Runner · 体感跑酷',
+            description: '摄像头体感控制跑酷游戏。身体左右移动躲避障碍物，MediaPipe + Three.js 驱动，无需手柄。',
+            tags: ['体感', '跑酷', '3D', '摄像头'],
+            file: 'http://localhost:3000',
+            drawPreview: function(ctx, w, h) {
+                const sky = ctx.createLinearGradient(0, 0, 0, h);
+                sky.addColorStop(0, '#1a1a2e'); sky.addColorStop(0.5, '#16213e');
+                sky.addColorStop(1, '#0f3460');
+                ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                for (let i = 0; i < 30; i++) {
+                    const sx = (i * 173 + 41) % w, sy = (i * 97 + 13) % (h * 0.55);
+                    ctx.beginPath(); ctx.arc(sx, sy, (i % 3) * 0.7 + 1, 0, Math.PI * 2); ctx.fill();
+                }
+
+                ctx.fillStyle = '#2d2d44'; ctx.fillRect(0, h * 0.7, w, h * 0.3);
+                ctx.strokeStyle = '#e94560'; ctx.lineWidth = 2;
+                ctx.setLineDash([22, 14]); ctx.beginPath();
+                ctx.moveTo(0, h * 0.74); ctx.lineTo(w, h * 0.74); ctx.stroke();
+                ctx.setLineDash([]);
+
+                const obst = [[w*0.38, h*0.59, '#ff6b6b'], [w*0.58, h*0.61, '#ffd93d'], [w*0.78, h*0.56, '#ff6b6b']];
+                obst.forEach(([ox, oy, c]) => {
+                    ctx.fillStyle = c; ctx.beginPath();
+                    ctx.moveTo(ox, oy); ctx.lineTo(ox+22, oy-10); ctx.lineTo(ox+44, oy);
+                    ctx.lineTo(ox+44, oy+30); ctx.lineTo(ox+22, oy+40); ctx.lineTo(ox, oy+30);
+                    ctx.closePath(); ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; ctx.stroke();
+                });
+
+                const rx = w * 0.25, ry = h * 0.59;
+                ctx.strokeStyle = '#4ecdc4'; ctx.lineWidth = 2.5;
+                ctx.fillStyle = '#4ecdc4';
+                ctx.beginPath(); ctx.arc(rx, ry - 36, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rx, ry - 28); ctx.lineTo(rx, ry - 4); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rx, ry - 4); ctx.lineTo(rx - 12, ry + 15); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rx, ry - 4); ctx.lineTo(rx + 10, ry + 13); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rx, ry - 23); ctx.lineTo(rx - 14, ry - 9); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rx, ry - 23); ctx.lineTo(rx + 13, ry - 7); ctx.stroke();
+
+                ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                ctx.beginPath(); ctx.arc(w - 35, 28, 18, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#4ecdc4';
+                ctx.beginPath(); ctx.arc(w - 35, 28, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.75)';
+                ctx.font = 'bold 9px "PingFang SC",sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText('CAM', w - 35, 50);
+
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'left'; ctx.fillText('🏃 体感跑酷', 20, 33);
+
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * 120 + 20, h * 0.72);
+                    ctx.lineTo(i * 120 - 12, h * 0.95); ctx.stroke();
+                }
+            }
+        },
+        {
+            id: 'coming-1',
+            title: '敬请期待...',
+            description: '更多手绘风格小游戏正在制作中。如果你有好的创意，欢迎提出建议！',
+            tags: ['???'],
+            file: null,
+            comingSoon: true,
+            drawPreview: null
+        }
+    ];
+
+    /* ============================================================
+     *  DOM 引用
+     * ============================================================ */
+    const hubView    = document.getElementById('hubView');
+    const gameView   = document.getElementById('gameView');
+    const gameFrame  = document.getElementById('gameFrame');
+    const backBtn    = document.getElementById('backBtn');
+    const gameTitleInBar = document.getElementById('gameTitleInBar');
+    const gamesGrid  = document.getElementById('gamesGrid');
+
+    /* ============================================================
+     *  根据 id 查找游戏
+     * ============================================================ */
+    function findGame(id) {
+        return games.find(g => g.id === id && !g.comingSoon);
+    }
+
+    /* ============================================================
+     *  启动游戏 (切换到 iframe 视图)
+     * ============================================================ */
+    function launchGame(game) {
+        if (!game || game.comingSoon) return;
+
+        // 外部链接直接跳转
+        if (/^https?:\/\//.test(game.file)) {
+            window.location.href = game.file;
+            return;
+        }
+
+        // 更新 URL hash
+        window.location.hash = game.id;
+
+        // 显示游戏视图
+        hubView.style.display = 'none';
+        gameView.classList.add('active');
+        gameTitleInBar.textContent = game.title;
+        gameFrame.src = game.file;
+
+        // 让 iframe 获得焦点，以便键盘事件直接生效
+        setTimeout(() => gameFrame.contentWindow?.focus?.(), 300);
+    }
+
+    /* ============================================================
+     *  返回合集 (切换回 Hub 视图)
+     * ============================================================ */
+    function backToHub() {
+        // 清除 URL hash
+        history.replaceState(null, '', window.location.pathname);
+
+        gameView.classList.remove('active');
+        gameFrame.src = '';
+        gameTitleInBar.textContent = '';
+        hubView.style.display = '';
+    }
+
+    /* ============================================================
+     *  渲染游戏卡片
+     * ============================================================ */
+    function renderCards() {
+        gamesGrid.innerHTML = '';
+
+        games.forEach(game => {
+            const card = document.createElement('div');
+            card.className = 'game-card' + (game.comingSoon ? ' coming-soon' : '');
+
+            // 预览区
+            const preview = document.createElement('div');
+            preview.className = 'card-preview';
+
+            if (game.comingSoon) {
+                preview.innerHTML = '<span class="coming-soon-text">🔧 制作中</span>';
+            } else {
+                const canvas = document.createElement('canvas');
+                canvas.width = 580;
+                canvas.height = 320;
+                game.drawPreview(canvas.getContext('2d'), canvas.width, canvas.height);
+                preview.appendChild(canvas);
+            }
+            card.appendChild(preview);
+
+            // 正文
+            const body = document.createElement('div');
+            body.className = 'card-body';
+
+            const tagsDiv = document.createElement('div');
+            tagsDiv.className = 'tags';
+            game.tags.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'tag';
+                span.textContent = t;
+                tagsDiv.appendChild(span);
+            });
+            body.appendChild(tagsDiv);
+
+            const h3 = document.createElement('h3');
+            h3.textContent = game.title;
+            body.appendChild(h3);
+
+            const desc = document.createElement('p');
+            desc.className = 'desc';
+            desc.textContent = game.description;
+            body.appendChild(desc);
+
+            if (!game.comingSoon) {
+                const btn = document.createElement('button');
+                btn.className = 'play-btn';
+                btn.innerHTML = '▶ 开始游戏';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    launchGame(game);
+                });
+                body.appendChild(btn);
+
+                card.addEventListener('click', () => launchGame(game));
+            }
+
+            card.appendChild(body);
+            gamesGrid.appendChild(card);
+        });
+    }
+
+    /* ============================================================
+     *  事件绑定
+     * ============================================================ */
+    backBtn.addEventListener('click', backToHub);
+
+    // Esc 键也可以返回合集
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && gameView.classList.contains('active')) {
+            e.preventDefault();
+            backToHub();
+        }
+    });
+
+    // 处理浏览器前进 / 后退
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+            const game = findGame(hash);
+            if (game) {
+                if (/^https?:\/\//.test(game.file)) {
+                    window.location.href = game.file;
+                    return;
+                }
+                hubView.style.display = 'none';
+                gameView.classList.add('active');
+                gameTitleInBar.textContent = game.title;
+                gameFrame.src = game.file;
+            }
+        } else {
+            // hash 被清空，返回合集
+            gameView.classList.remove('active');
+            gameFrame.src = '';
+            gameTitleInBar.textContent = '';
+            hubView.style.display = '';
+        }
+    });
+
+    /* ============================================================
+     *  启动时检查 URL hash —— 支持直接链接到某个游戏
+     *  例如: index.html#cosmic-basketball
+     * ============================================================ */
+    function init() {
+        renderCards();
+
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+            const game = findGame(hash);
+            if (game) {
+                launchGame(game);
+            }
+        }
+    }
+
+    init();
+
+    console.log('🎮 YYZ 游戏合集已就绪，共 ' + games.length + ' 款游戏');
+    console.log('   点击卡片进入游戏 | 顶栏 ← 按钮或 Esc 返回合集');
+})();
+</script>
+
+</body>
+</html>
