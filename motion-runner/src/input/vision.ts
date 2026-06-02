@@ -54,7 +54,7 @@ export class VisionClient {
   sendFrame(video: HTMLVideoElement) {
     if (!this.worker || this.busy || video.readyState < 2) return;
     this.busy = true;
-    createImageBitmap(video, { resizeWidth: 224, resizeHeight: 224, resizeQuality: 'pixelated' })
+    createImageBitmap(video, { resizeWidth: 256, resizeHeight: 256, resizeQuality: 'pixelated' })
       .then(bitmap => {
         this.worker!.postMessage(
           { type: 'frame', imageBitmap: bitmap, timestamp: performance.now() } satisfies ToWorkerMsg,

@@ -7,6 +7,8 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
+    emptyOutDir: false,
+    copyPublicDir: false,
   },
   worker: {
     format: 'es',

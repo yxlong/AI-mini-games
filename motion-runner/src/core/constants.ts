@@ -119,7 +119,7 @@ export const ZONE = {
   /** 消抖帧数 */
   DEBOUNCE: 3,
   /** EMA 平滑系数 (中性位置) */
-  EMA_ALPHA: 0.01,
+  EMA_ALPHA: 0.02,
   /** 2 车道信号放大倍数 */
   SENSITIVITY_2: 3.5,
   /** 3 车道信号放大倍数 */
@@ -127,6 +127,14 @@ export const ZONE = {
   /** 边界滞回触发比例 */
   HYSTERESIS_ENTER: 0.85,
   HYSTERESIS_EXIT: 1.15,
+};
+
+// ---- 时序平滑 ----
+export const SMOOTHING = {
+  /** 关键点 EMA 平滑系数 (0-1, 越大响应越快) */
+  LANDMARK_ALPHA: 0.4,
+  /** 骨骼长度变化容忍比例 (超过此比例视为异常帧) */
+  BONE_LENGTH_TOLERANCE: 0.25,
 };
 
 // ---- 难度预设 ----
@@ -139,9 +147,9 @@ export const DIFFICULTY = {
 // ---- 帧处理 ----
 export const FRAME = {
   /** createImageBitmap 目标宽 */
-  RESIZE_W: 224,
+  RESIZE_W: 256,
   /** createImageBitmap 目标高 */
-  RESIZE_H: 224,
+  RESIZE_H: 256,
   /** 摄像头采集分辨率 (ideal) */
   CAMERA_W: 1280,
   CAMERA_H: 720,

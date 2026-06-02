@@ -1,0 +1,24 @@
+{
+  "name": "pinyin-adventure",
+  "version": "1.0.0",
+  "description": "拼音学习游戏 - 给小朋友的拼音冒险",
+  "type": "module",
+  "scripts": {
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "generate-images": "node scripts/generate-images.js",
+    "generate-audio": "node scripts/generate-audio.js && node scripts/generate-example-audio.js",
+    "generate-audio:initials": "node scripts/generate-audio.js --initials",
+    "generate-audio:finals": "node scripts/generate-audio.js --finals",
+    "generate-audio:chars": "node scripts/generate-audio.js --chars",
+    "generate-audio:sentences": "node scripts/generate-audio.js --sentences",
+    "generate-all": "node scripts/generate-audio.js && node scripts/generate-example-audio.js"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

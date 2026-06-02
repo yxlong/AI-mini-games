@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && cp -r public/* dist/ 2>/dev/null; vite build",
     "preview": "vite preview"
   },
   "devDependencies": {

@@ -164,6 +164,17 @@
     .play-btn:hover { background: #c05920; transform: scale(1.04); }
     .play-btn:active { transform: scale(0.96); }
 
+    .server-hint {
+        margin-top: 10px;
+        padding: 6px 12px;
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid rgba(255, 193, 7, 0.3);
+        border-radius: 8px;
+        font-size: 11px;
+        color: #b8960f;
+        letter-spacing: 0.5px;
+    }
+
     /* --- 即将推出 --- */
     .game-card.coming-soon {
         opacity: 0.55; cursor: default; border-style: dashed;
@@ -566,6 +577,7 @@
             description: '摄像头体感控制跑酷游戏。身体左右移动躲避障碍物，MediaPipe + Three.js 驱动，无需手柄。',
             tags: ['体感', '跑酷', '3D', '摄像头'],
             file: 'http://localhost:3000',
+            needsServer: 'cd motion-runner && npm run dev',
             drawPreview: function(ctx, w, h) {
                 const sky = ctx.createLinearGradient(0, 0, 0, h);
                 sky.addColorStop(0, '#1a1a2e'); sky.addColorStop(0.5, '#16213e');
@@ -621,6 +633,114 @@
                     ctx.moveTo(i * 120 + 20, h * 0.72);
                     ctx.lineTo(i * 120 - 12, h * 0.95); ctx.stroke();
                 }
+            }
+        },
+        {
+            id: 'pinyin-adventure',
+            title: '拼音太空冒险',
+            description: '3D太空探索 + 拼音学习。158颗星球等你点亮，看字选拼音 / 看拼音选字，答对星球变色发光。专为小朋友设计的寓教于乐游戏。',
+            tags: ['拼音', '3D', '教育', '太空'],
+            file: 'http://localhost:3001',
+            needsServer: 'cd pinyin && npm run dev',
+            drawPreview: function(ctx, w, h) {
+                // 深空背景
+                const bg = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, w*0.8);
+                bg.addColorStop(0, '#1a1a4e');
+                bg.addColorStop(1, '#05051a');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, w, h);
+
+                // 星星
+                for (let i = 0; i < 60; i++) {
+                    const sx = (i * 137 + 41) % w, sy = (i * 89 + 17) % h;
+                    ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.7})`;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, (i % 3) * 0.4 + 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 星云
+                ctx.fillStyle = 'rgba(120, 70, 200, 0.08)';
+                ctx.beginPath(); ctx.arc(w*0.3, h*0.25, 80, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'rgba(40, 120, 220, 0.07)';
+                ctx.beginPath(); ctx.arc(w*0.7, h*0.6, 70, 0, Math.PI*2); ctx.fill();
+
+                // 彩色星球 (已点亮状态)
+                const planets = [
+                    [w*0.2, h*0.30, 22, '#ff6b6b', '#c0392b'],
+                    [w*0.45, h*0.20, 16, '#4ecdc4', '#1a8a82'],
+                    [w*0.65, h*0.42, 28, '#ffd93d', '#c0912a'],
+                    [w*0.30, h*0.62, 13, '#a855f7', '#6d28d9'],
+                    [w*0.78, h*0.28, 19, '#22c55e', '#15803d'],
+                ];
+                planets.forEach(([px, py, pr, color, dark]) => {
+                    // 光晕
+                    const halo = ctx.createRadialGradient(px, py, pr*0.8, px, py, pr*2.5);
+                    halo.addColorStop(0, color);
+                    halo.addColorStop(0.5, color.replace(')', ',0.25)').replace('rgb', 'rgba'));
+                    halo.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = halo;
+                    ctx.beginPath(); ctx.arc(px, py, pr*2.5, 0, Math.PI*2); ctx.fill();
+
+                    // 星球体
+                    const g = ctx.createRadialGradient(px-pr*0.3, py-pr*0.3, pr*0.1, px, py, pr);
+                    g.addColorStop(0, '#ffffff');
+                    g.addColorStop(0.3, color);
+                    g.addColorStop(1, dark);
+                    ctx.fillStyle = g;
+                    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill();
+
+                    // 光环 (部分)
+                    if (Math.random() > 0.5) {
+                        ctx.strokeStyle = color.replace(')', ',0.5)').replace('rgb', 'rgba');
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.ellipse(px, py, pr*1.8, pr*0.35, 0, 0, Math.PI*2);
+                        ctx.stroke();
+                    }
+                });
+
+                // 灰色星球 (未点亮)
+                const greyPlanets = [
+                    [w*0.55, h*0.68, 10],
+                    [w*0.82, h*0.65, 7],
+                    [w*0.15, h*0.78, 9],
+                ];
+                greyPlanets.forEach(([gx, gy, gr]) => {
+                    const gg = ctx.createRadialGradient(gx-gr*0.3, gy-gr*0.3, gr*0.1, gx, gy, gr);
+                    gg.addColorStop(0, '#aaaaaa');
+                    gg.addColorStop(1, '#445566');
+                    ctx.fillStyle = gg;
+                    ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI*2); ctx.fill();
+                });
+
+                // 飞船
+                ctx.fillStyle = '#8899aa';
+                ctx.beginPath();
+                const sx = w*0.45, sy = h*0.78;
+                ctx.moveTo(sx, sy - 8);
+                ctx.lineTo(sx - 5, sy + 5);
+                ctx.lineTo(sx + 5, sy + 5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#44aaff';
+                ctx.beginPath(); ctx.arc(sx, sy + 6, 2.5, 0, Math.PI*2); ctx.fill();
+
+                // 标题
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.font = 'bold 16px "PingFang SC","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('🚀 拼音太空冒险', 16, 28);
+
+                // 汉字示例
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 36px "Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('星', w*0.5, h*0.75);
+
+                ctx.fillStyle = '#40c4ff';
+                ctx.font = '20px "Microsoft YaHei",sans-serif';
+                ctx.fillText('xīng', w*0.5, h*0.85);
             }
         },
         {
@@ -746,6 +866,13 @@
                     launchGame(game);
                 });
                 body.appendChild(btn);
+
+                if (game.needsServer) {
+                    const hint = document.createElement('div');
+                    hint.className = 'server-hint';
+                    hint.innerHTML = '⚡ <code>' + game.needsServer + '</code>';
+                    body.appendChild(hint);
+                }
 
                 card.addEventListener('click', () => launchGame(game));
             }
